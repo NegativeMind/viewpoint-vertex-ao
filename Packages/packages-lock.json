@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "com.negativemind.unity-geoao": {
-      "version": "file:com.negativemind.unity-geoao",
+    "com.negativemind.viewpoint-based-ao": {
+      "version": "file:com.negativemind.viewpoint-based-ao",
       "depth": 0,
       "source": "embedded",
       "dependencies": {
