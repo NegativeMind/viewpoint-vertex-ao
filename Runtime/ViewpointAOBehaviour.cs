@@ -14,7 +14,6 @@ namespace ViewpointBasedAO {
         [Range (0.0f, 1.0f)] public float aoScale = 1f;
         [Range (0.0f, 1.0f)] public float spreadAngle = 0.8f;
         public AOSamplingLevel samplingLevel = AOSamplingLevel.High;
-        public bool showAOWithVertColors = false;
         public bool showDebug = false;
 
         MeshFilter[] meshFilters;
@@ -39,10 +38,10 @@ namespace ViewpointBasedAO {
         UniversalRendererData rendererData;
         ViewpointAORendererFeature dynamicFeature;
 
-        const string cameraName = "ViewpointAOCam";
-        const string shaderName = "ViewpointAO/VertexAO";
-        const string shaderNameLit = "ViewpointAO/VertAOLit";
-        const string shaderNameDebug = "ViewpointAO/VertAOOpti";
+        const string cameraName = "ViewpointAOCamera";
+        const string computeShaderName = "ViewpointAO/ComputeVertexAO";
+        const string renderShaderName = "ViewpointAO/RenderWithVertexAO";
+        const string previewShaderName = "ViewpointAO/PreviewVertexAO";
 
         void Awake () {
             rendererData = FindRendererData ();
@@ -59,7 +58,7 @@ namespace ViewpointBasedAO {
                 return;
             }
 
-            ambientOcclusionMat = new Material (Shader.Find (shaderName));
+            ambientOcclusionMat = new Material (Shader.Find (computeShaderName));
 
             // RendererFeature を動的に追加
             dynamicFeature = ScriptableObject.CreateInstance<ViewpointAORendererFeature> ();
@@ -77,7 +76,8 @@ namespace ViewpointBasedAO {
             CreateAoCamera ();
             VertexPositionsToTexture ();
             ComputeAmbientOcclusion ();
-            DisplayAmbientOcclusion ();
+            var aoTex = ReadAOResult ();
+            BakeAO (aoTex);
             DisposeResources ();
 
             Debug.Log ("[ViewpointAO] Compute times: " + (Time.realtimeSinceStartup - t0).ToString ("F3") + " seconds");
@@ -88,8 +88,8 @@ namespace ViewpointBasedAO {
         // ---------------------------------------------------------------------------------
 
         static UniversalRendererData FindRendererData () {
-            var rpa = GraphicsSettings.currentRenderPipeline
-                   ?? GraphicsSettings.renderPipelineAsset;
+            var rpa = GraphicsSettings.currentRenderPipeline ??
+                GraphicsSettings.renderPipelineAsset;
             var pipeline = rpa as UniversalRenderPipelineAsset;
             if (pipeline == null) {
                 Debug.LogError ($"[ViewpointAO] URP が見つかりません。Project Settings > Graphics で URP アセットを設定してください。({(rpa == null ? "null" : rpa.GetType().Name)})");
@@ -291,7 +291,7 @@ namespace ViewpointBasedAO {
             }
         }
 
-        void DisplayAmbientOcclusion () {
+        Texture2D ReadAOResult () {
             int texW = aoRenderTextureForShader.width;
             int texH = aoRenderTextureForShader.height;
             RenderTexture.active = aoRenderTextureForShader;
@@ -300,32 +300,37 @@ namespace ViewpointBasedAO {
                 filterMode = FilterMode.Point
             };
             aoTex.ReadPixels (new Rect (0, 0, texW, texH), 0, 0);
+            aoTex.Apply (false, false);
             RenderTexture.active = null;
+            return aoTex;
+        }
 
-            if (!showAOWithVertColors) {
-                aoTex.Apply (false, false);
+        void BakeAO (Texture2D aoTex) {
+            float invW = 1f / aoTex.width;
+            float invH = 1f / aoTex.height;
+            int idVert = 0;
 
-                float invW = 1f / texW;
-                float invH = 1f / texH;
-                int idVert = 0;
+            for (int i = 0; i < meshFilters.Length; i++) {
+                var mesh = meshFilters[i].mesh;
+                int vertCount = mesh.vertexCount;
+                var uv2 = new Vector2[vertCount];
+                var colors = new Color[vertCount];
 
-                for (int i = 0; i < meshFilters.Length; i++) {
-                    int vertCount = meshFilters[i].sharedMesh.vertexCount;
-                    var uv2 = new Vector2[vertCount];
-                    for (int j = 0; j < vertCount; j++) {
-                        int px = idVert % vertByRow;
-                        int py = idVert / vertByRow;
-                        uv2[j] = new Vector2 ((px + 0.5f) * invW, (py + 0.5f) * invH);
-                        idVert++;
-                    }
-                    meshFilters[i].mesh.uv2 = uv2;
+                for (int j = 0; j < vertCount; j++) {
+                    int px = idVert % vertByRow;
+                    int py = idVert / vertByRow;
+                    uv2[j] = new Vector2 ((px + 0.5f) * invW, (py + 0.5f) * invH);
+                    colors[j] = aoTex.GetPixel (px, py);
+                    idVert++;
+                }
 
-                    var renderer = meshFilters[i].GetComponent<Renderer> ();
-                    Material mat;
+                mesh.uv2 = uv2;
+                mesh.colors = colors;
 
-                    // 元のマテリアルからベーステクスチャ・カラーを引き継ぎ AO を追加
+                var renderer = meshFilters[i].GetComponent<Renderer> ();
+                var mat = new Material (Shader.Find (showDebug ? previewShaderName : renderShaderName));
+                if (!showDebug) {
                     var origMat = renderer.sharedMaterial;
-                    mat = new Material (Shader.Find (shaderNameLit));
                     if (origMat != null) {
                         if (origMat.HasTexture ("_BaseMap"))
                             mat.SetTexture ("_BaseMap", origMat.GetTexture ("_BaseMap"));
@@ -336,23 +341,10 @@ namespace ViewpointBasedAO {
                         else if (origMat.HasColor ("_Color"))
                             mat.SetColor ("_BaseColor", origMat.GetColor ("_Color"));
                     }
-                    mat.SetFloat ("_AOScale", aoScale);
-
-                    mat.SetTexture ("_AOTex", aoTex);
-                    renderer.material = mat;
                 }
-            } else {
-                int id = 0;
-                for (int i = 0; i < meshFilters.Length; i++) {
-                    int vertCount = meshFilters[i].mesh.vertexCount;
-                    var colors = new Color[vertCount];
-                    for (int j = 0; j < vertCount; j++) {
-                        var rawAO = aoTex.GetPixel (id % vertByRow, id / vertByRow);
-                        colors[j] = rawAO + new Color (1 - aoScale, 1 - aoScale, 1 - aoScale, 1);
-                        id++;
-                    }
-                    meshFilters[i].mesh.colors = colors;
-                }
+                mat.SetFloat ("_AOScale", aoScale);
+                mat.SetTexture ("_AOTex", aoTex);
+                renderer.material = mat;
             }
         }
 

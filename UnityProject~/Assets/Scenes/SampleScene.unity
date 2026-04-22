@@ -266,7 +266,6 @@ MonoBehaviour:
   aoScale: 1
   spreadAngle: 0.8
   samplingLevel: 144
-  showAOWithVertColors: 0
   showDebug: 0
 --- !u!1 &962322756
 GameObject:

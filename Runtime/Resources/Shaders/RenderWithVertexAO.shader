@@ -1,6 +1,6 @@
 // MIT License — Copyright (c) 2017 Xavier Martinez, modified for URP 14 PBR lighting
 
-Shader "ViewpointAO/VertAOLit"
+Shader "ViewpointAO/RenderWithVertexAO"
 {
     Properties
     {
