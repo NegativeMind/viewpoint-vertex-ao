@@ -1,8 +1,8 @@
 {
-    "name": "ViewpointBasedAO.Editor",
-    "rootNamespace": "ViewpointBasedAO.Editor",
+    "name": "NegativeMind.ViewpointVertexAO.Editor",
+    "rootNamespace": "NegativeMind.ViewpointVertexAO.Editor",
     "references": [
-        "ViewpointBasedAO.Runtime",
+        "NegativeMind.ViewpointVertexAO.Runtime",
         "Unity.RenderPipelines.Universal.Editor",
         "Unity.RenderPipelines.Core.Editor"
     ],

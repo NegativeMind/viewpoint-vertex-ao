@@ -2,21 +2,21 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace ViewpointBasedAO {
+namespace NegativeMind.ViewpointVertexAO {
 
 	/// <summary>
 	/// URP Renderer Feature for Viewpoint-Based AO. Blits the AO compute pass into the destination render texture.
 	/// </summary>
-	public class ViewpointAORendererFeature : ScriptableRendererFeature {
+	public class AORendererFeature : ScriptableRendererFeature {
 
-		public ViewpointAOSettings settings = new ViewpointAOSettings ();
-		public ViewpointAORendererPass geoAOPass;
+		public AOSettings settings = new AOSettings ();
+		public AORendererPass geoAOPass;
 		RTHandle srcIdentifier, dstIdentifier;
 
 		public override void Create () {
 			var passIndex = settings.blitMaterial != null ? settings.blitMaterial.passCount - 1 : 1;
 			settings.blitMaterialPassIndex = Mathf.Clamp (settings.blitMaterialPassIndex, -1, passIndex);
-			geoAOPass = new ViewpointAORendererPass (settings.Event, settings, name);
+			geoAOPass = new AORendererPass (settings.Event, settings, name);
 
 			if (settings.Event == RenderPassEvent.AfterRenderingPostProcessing) {
 				Debug.LogWarning ("Note that the \"After Rendering Post Processing\"'s Color target doesn't seem to work? (or might work, but doesn't contain the post processing) :( -- Use \"After Rendering\" instead!");
@@ -119,4 +119,4 @@ namespace ViewpointBasedAO {
 		}
 	}
 
-} // namespace ViewpointBasedAO
+} // namespace NegativeMind.ViewpointVertexAO

@@ -5,15 +5,15 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace ViewpointBasedAO {
+namespace NegativeMind.ViewpointVertexAO {
     /// <summary>
     /// MonoBehaviour entry point for Viewpoint-Based AO. Attach to a GameObject to compute and apply AO.
     /// Automatically detects URP RendererData, adds the RendererFeature, and reserves a layer.
     /// </summary>
-    public class ViewpointAOBehaviour : MonoBehaviour {
+    public class AOBehaviour : MonoBehaviour {
 
         [Range (0.0f, 1.0f)] public float spreadAngle = 0.8f;
-        public AOSamplingLevel samplingLevel = AOSamplingLevel.High;
+        public SamplingLevel samplingLevel = SamplingLevel.High;
         [Range (0.0f, 1.0f)] public float aoScale = 1f;
         public bool showDebug = false;
 
@@ -39,7 +39,7 @@ namespace ViewpointBasedAO {
         int aoLayerIndex = -1;
 
         UniversalRendererData rendererData;
-        ViewpointAORendererFeature dynamicFeature;
+        AORendererFeature dynamicFeature;
 
         const string cameraName = "ViewpointAOCamera";
         const string computeShaderName = "ViewpointAO/ComputeVertexAO";
@@ -64,7 +64,7 @@ namespace ViewpointBasedAO {
             ambientOcclusionMat = new Material (Shader.Find (computeShaderName));
 
             // RendererFeature を動的に追加
-            dynamicFeature = ScriptableObject.CreateInstance<ViewpointAORendererFeature> ();
+            dynamicFeature = ScriptableObject.CreateInstance<AORendererFeature> ();
             dynamicFeature.name = "ViewpointAO_Dynamic";
             ConfigureFeatureSettings (dynamicFeature, null);
             rendererData.rendererFeatures.Add (dynamicFeature);
@@ -130,7 +130,7 @@ namespace ViewpointBasedAO {
             return -1;
         }
 
-        void ConfigureFeatureSettings (ViewpointAORendererFeature feature, RenderTexture dstTexture) {
+        void ConfigureFeatureSettings (AORendererFeature feature, RenderTexture dstTexture) {
             var s = feature.settings;
             s.blitMaterial = ambientOcclusionMat;
             s.setInverseViewMatrix = true;

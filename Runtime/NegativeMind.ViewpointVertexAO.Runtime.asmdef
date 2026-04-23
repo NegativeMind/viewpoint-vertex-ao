@@ -1,6 +1,6 @@
 {
-    "name": "ViewpointBasedAO.Runtime",
-    "rootNamespace": "ViewpointBasedAO",
+    "name": "NegativeMind.ViewpointVertexAO.Runtime",
+    "rootNamespace": "NegativeMind.ViewpointVertexAO",
     "references": [
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime",

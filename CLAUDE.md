@@ -29,9 +29,9 @@ viewpoint-based-AO/          ← repo root = package root
 
 ## Package Info
 
-- **Package ID**: `com.negativemind.viewpoint-based-ao`
-- **Assemblies**: `ViewpointBasedAO.Runtime` / `ViewpointBasedAO.Editor`
-- **Namespace**: `ViewpointBasedAO`
+- **Package ID**: `com.negativemind.viewpoint-vertex-ao`
+- **Assemblies**: `NegativeMind.ViewpointVertexAO.Runtime` / `NegativeMind.ViewpointVertexAO.Editor`
+- **Namespace**: `NegativeMind.ViewpointVertexAO`
 - **Unity**: 2022.3+
 - **Dependencies**: URP 12.1.0+, ShaderGraph 12.1.0+, Mathematics 1.2.6+
 
@@ -39,11 +39,11 @@ viewpoint-based-AO/          ← repo root = package root
 
 | Class | Role |
 |---|---|
-| `ViewpointAOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
-| `ViewpointAORendererFeature` | URP Renderer Feature. Handles per-camera blit into the AO render texture. |
-| `ViewpointAORendererPass` | ScriptableRenderPass implementation. Uses `RTHandle` API (URP 14). |
-| `ViewpointAOSettings` | Settings data for the Renderer Feature. |
-| `AOSamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
+| `AOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
+| `AORendererFeature` | URP Renderer Feature. Handles per-camera blit into the AO render texture. |
+| `AORendererPass` | ScriptableRenderPass implementation. Uses `RTHandle` API (URP 14). |
+| `AOSettings` | Settings data for the Renderer Feature. |
+| `SamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
 
 ## Shaders
 
@@ -59,7 +59,7 @@ viewpoint-based-AO/          ← repo root = package root
 Awake()
   ├─ Find UniversalRendererData via reflection (m_RendererDataList)
   ├─ Reserve a free layer for the AO camera
-  └─ Dynamically add ViewpointAORendererFeature to the renderer
+  └─ Dynamically add AORendererFeature to the renderer
 
 Start()
   ├─ InitializeObjectAndGetBounds()  — collect MeshFilters, compute bounds
@@ -82,11 +82,11 @@ Start()
 
 ## Known Constraints
 
-- `ViewpointAOBehaviour.Awake()` uses reflection to retrieve `UniversalRendererData`. If URP is not assigned in Graphics Settings the component disables itself.
+- `AOBehaviour.Awake()` uses reflection to retrieve `UniversalRendererData`. If URP is not assigned in Graphics Settings the component disables itself.
 - AO is computed once in `Start()` — no real-time updates.
 - `GenerateSamplePositions()` always distributes viewpoints over the full sphere. The `spreadAngle` property controls the per-vertex normal cone filter inside the shader, not the viewpoint distribution range.
 - `BakeAO()` always writes to both UV2 texture and vertex colors simultaneously. Display uses `RenderWithVertexAO` (UV2 path). Vertex colors are available for custom shaders needing the AO value in the `COLOR` semantic.
 - The AO texture format is `RGBAHalf` with values in `[0, 1]`. The running average is computed in the shader; no CPU-side normalization is needed.
 - `BakeAO()` calls `mat.CopyPropertiesFromMaterial(renderer.sharedMaterial)` then immediately re-assigns `mat.shader = targetShader` because `CopyPropertiesFromMaterial` also copies the source material's shader.
-- `ViewpointAORendererPass` uses the URP 14 `RTHandle` API. `FrameCleanup` has been replaced with `OnCameraCleanup`. Temporary RTs use `cmd.GetTemporaryRT`/`ReleaseTemporaryRT` (int-based, not deprecated). `cmd.Blit` (CommandBuffer) is used instead of `Blitter.BlitCameraTexture` because `ComputeVertexAO.shader` requires its own vertex shader to be called.
+- `AORendererPass` uses the URP 14 `RTHandle` API. `FrameCleanup` has been replaced with `OnCameraCleanup`. Temporary RTs use `cmd.GetTemporaryRT`/`ReleaseTemporaryRT` (int-based, not deprecated). `cmd.Blit` (CommandBuffer) is used instead of `Blitter.BlitCameraTexture` because `ComputeVertexAO.shader` requires its own vertex shader to be called.
 - `UnityProject~/` is tracked by git. `Library/`, `Temp/`, and `Logs/` should be in `.gitignore`.

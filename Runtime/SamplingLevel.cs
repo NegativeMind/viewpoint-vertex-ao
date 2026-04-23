@@ -1,8 +1,8 @@
-namespace ViewpointBasedAO {
+namespace NegativeMind.ViewpointVertexAO {
     /// <summary>
     /// Number of viewpoints used for AO sampling. Higher values produce better quality at the cost of longer bake time.
     /// </summary>
-    public enum AOSamplingLevel {
+    public enum SamplingLevel {
         VeryLow = 16,
         Low = 36,
         Medium = 64,

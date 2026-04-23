@@ -20,19 +20,19 @@ A Unity URP package that computes per-vertex Ambient Occlusion by rendering the 
 3. Enter the following URL and click **Add**:
 
 ```
-https://github.com/NegativeMind/viewpoint-based-AO.git
+https://github.com/NegativeMind/viewpoint-vertex-ao.git
 ```
 
 To install a specific version, append the tag:
 
 ```
-https://github.com/NegativeMind/viewpoint-based-AO.git#v1.0.0
+https://github.com/NegativeMind/viewpoint-vertex-ao.git#v1.0.0
 ```
 
 
 ## Usage
 
-1. **Attach** `ViewpointAOBehaviour` to any GameObject that has `MeshFilter` + `MeshRenderer` components (child objects are included automatically).
+1. **Attach** `AOBehaviour` to any GameObject that has `MeshFilter` + `MeshRenderer` components (child objects are included automatically).
 
 2. **Configure** the component in the Inspector:
 

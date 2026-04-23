@@ -1,12 +1,12 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace ViewpointBasedAO {
+namespace NegativeMind.ViewpointVertexAO {
     /// <summary>
-    /// Settings for the ViewpointAO Renderer Feature.
+    /// Settings for the AORendererFeature.
     /// </summary>
     [System.Serializable]
-    public class ViewpointAOSettings {
+    public class AOSettings {
         public RenderPassEvent Event = RenderPassEvent.AfterRenderingOpaques;
 
         public string cameraName;

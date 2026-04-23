@@ -2,24 +2,24 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace ViewpointBasedAO {
+namespace NegativeMind.ViewpointVertexAO {
 
     /// <summary>
-    /// ViewpointAO用のScriptableRenderPass
+    /// ScriptableRenderPass for Viewpoint-Based AO. Blits via ComputeVertexAO shader.
     /// </summary>
-    public class ViewpointAORendererPass : ScriptableRenderPass {
+    public class AORendererPass : ScriptableRenderPass {
 
         public Material blitMaterial = null;
         public FilterMode filterMode { get; set; }
 
-        private readonly ViewpointAOSettings settings;
+        private readonly AOSettings settings;
         private RTHandle m_Source;
         private RTHandle m_Destination;
         private string m_ProfilerTag;
 
         private static readonly int k_TempColorTexId = Shader.PropertyToID ("_TemporaryColorTexture");
 
-        public ViewpointAORendererPass (RenderPassEvent renderPassEvent, ViewpointAOSettings settings, string tag) {
+        public AORendererPass (RenderPassEvent renderPassEvent, AOSettings settings, string tag) {
             this.renderPassEvent = renderPassEvent;
             this.settings = settings;
             blitMaterial = settings.blitMaterial;
@@ -78,4 +78,4 @@ namespace ViewpointBasedAO {
         }
     }
 
-} // namespace ViewpointBasedAO
+} // namespace NegativeMind.ViewpointVertexAO
