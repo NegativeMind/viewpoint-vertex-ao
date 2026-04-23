@@ -11,9 +11,10 @@ namespace ViewpointBasedAO {
     /// URP RendererDataの検出・RendererFeatureの追加・レイヤー確保を自動で行う。
     /// </summary>
     public class ViewpointAOBehaviour : MonoBehaviour {
-        [Range (0.0f, 1.0f)] public float aoScale = 1f;
+
         [Range (0.0f, 1.0f)] public float spreadAngle = 0.8f;
         public AOSamplingLevel samplingLevel = AOSamplingLevel.High;
+        [Range (0.0f, 1.0f)] public float aoScale = 1f;
         public bool showDebug = false;
 
         MeshFilter[] meshFilters;
@@ -25,7 +26,9 @@ namespace ViewpointBasedAO {
         RenderTexture aoRenderTexture;
         RenderTexture aoRenderTextureForShader;
         Texture2D vertexPositionsTexture;
+        Texture2D vertexNormalsTexture;
         Material ambientOcclusionMat;
+        Material[] aoMaterials;
 
         int allVertexCount = 0;
         int vertByRow = 256;
@@ -74,7 +77,7 @@ namespace ViewpointBasedAO {
             InitializeObjectAndGetBounds ();
             GenerateSamplePositions ();
             CreateAoCamera ();
-            VertexPositionsToTexture ();
+            VertexDataToTexture ();
             ComputeAmbientOcclusion ();
             var aoTex = ReadAOResult ();
             BakeAO (aoTex);
@@ -177,7 +180,7 @@ namespace ViewpointBasedAO {
 
             float golden_angle = Mathf.PI * (3 - Mathf.Sqrt (5));
             // spreadAngle=1: full sphere (z +1→-1), spreadAngle=0: equatorial ring (z=0)
-            float zRange = spreadAngle * (1.0f - 1.0f / (int) samplingLevel);
+            float zRange = 1.0f - 1.0f / (int) samplingLevel;
             float start = zRange;
             float end = -zRange;
 
@@ -233,33 +236,50 @@ namespace ViewpointBasedAO {
                 anisoLevel = 0,
                 filterMode = FilterMode.Point
             };
+            vertexNormalsTexture = new Texture2D (vertByRow, height, TextureFormat.RGBAFloat, false) {
+                anisoLevel = 0,
+                filterMode = FilterMode.Point
+            };
 
             // RenderTexture をセット後 Create() を再呼び出しして反映
             ConfigureFeatureSettings (dynamicFeature, aoRenderTexture);
             rendererData.SetDirty ();
         }
 
-        void VertexPositionsToTexture () {
+        void VertexDataToTexture () {
             int size = vertexPositionsTexture.width * vertexPositionsTexture.height;
-            Color[] vertexInfo = new Color[size];
+            Color[] positions = new Color[size];
+            Color[] normals = new Color[size];
 
             int id = 0;
             foreach (var mf in meshFilters) {
                 var t = mf.transform;
-                foreach (var v in mf.sharedMesh.vertices) {
-                    Vector3 wp = t.TransformPoint (v);
-                    vertexInfo[id++] = new Color (wp.x, wp.y, wp.z, 0f);
+                var verts = mf.sharedMesh.vertices;
+                var norms = mf.sharedMesh.normals;
+                bool hasNormals = norms != null && norms.Length == verts.Length;
+                for (int i = 0; i < verts.Length; i++) {
+                    Vector3 wp = t.TransformPoint (verts[i]);
+                    positions[id] = new Color (wp.x, wp.y, wp.z, 0f);
+                    Vector3 wn = hasNormals ?
+                        t.TransformDirection (norms[i]).normalized :
+                        Vector3.up;
+                    normals[id] = new Color (wn.x, wn.y, wn.z, 0f);
+                    id++;
                 }
             }
 
-            vertexPositionsTexture.SetPixels (vertexInfo);
+            vertexPositionsTexture.SetPixels (positions);
             vertexPositionsTexture.Apply (false, false);
+            vertexNormalsTexture.SetPixels (normals);
+            vertexNormalsTexture.Apply (false, false);
         }
 
         void ComputeAmbientOcclusion () {
             ambientOcclusionMat.SetInt ("_uCount", (int) samplingLevel);
             ambientOcclusionMat.SetTexture ("_AOTex2", aoRenderTextureForShader);
             ambientOcclusionMat.SetTexture ("_uVertex", vertexPositionsTexture);
+            ambientOcclusionMat.SetTexture ("_uNormal", vertexNormalsTexture);
+            ambientOcclusionMat.SetFloat ("_SpreadAngle", spreadAngle);
 
             for (int i = 0; i < meshFilters.Length; i++)
                 meshFilters[i].gameObject.layer = aoLayerIndex;
@@ -280,6 +300,7 @@ namespace ViewpointBasedAO {
 
                 ambientOcclusionMat.SetMatrix ("_VP", P * V);
                 ambientOcclusionMat.SetInt ("_curCount", i);
+                ambientOcclusionMat.SetVector ("_CameraWorldPos", rayDirection[i]);
                 aoCamera.Render ();
 
                 Graphics.CopyTexture (aoRenderTexture, aoRenderTextureForShader);
@@ -295,13 +316,25 @@ namespace ViewpointBasedAO {
             int texW = aoRenderTextureForShader.width;
             int texH = aoRenderTextureForShader.height;
             RenderTexture.active = aoRenderTextureForShader;
+            var raw = new Texture2D (texW, texH, TextureFormat.RGBAHalf, false);
+            raw.ReadPixels (new Rect (0, 0, texW, texH), 0, 0);
+            raw.Apply (false, false);
+            RenderTexture.active = null;
+
+            // R = visible-in-cone count, G = total-in-cone count → normalize to [0, 2]
+            Color[] pixels = raw.GetPixels ();
+            Object.DestroyImmediate (raw);
+            for (int i = 0; i < pixels.Length; i++) {
+                float v = pixels[i].g > 0f ? (pixels[i].r / pixels[i].g) * 2f : 2f;
+                pixels[i] = new Color (v, v, v, v);
+            }
+
             var aoTex = new Texture2D (texW, texH, TextureFormat.RGBAHalf, false) {
                 anisoLevel = 0,
                 filterMode = FilterMode.Point
             };
-            aoTex.ReadPixels (new Rect (0, 0, texW, texH), 0, 0);
+            aoTex.SetPixels (pixels);
             aoTex.Apply (false, false);
-            RenderTexture.active = null;
             return aoTex;
         }
 
@@ -309,6 +342,8 @@ namespace ViewpointBasedAO {
             float invW = 1f / aoTex.width;
             float invH = 1f / aoTex.height;
             int idVert = 0;
+
+            aoMaterials = new Material[meshFilters.Length];
 
             for (int i = 0; i < meshFilters.Length; i++) {
                 var mesh = meshFilters[i].mesh;
@@ -328,28 +363,23 @@ namespace ViewpointBasedAO {
                 mesh.colors = colors;
 
                 var renderer = meshFilters[i].GetComponent<Renderer> ();
-                var mat = new Material (Shader.Find (showDebug ? previewShaderName : renderShaderName));
-                if (!showDebug) {
-                    var origMat = renderer.sharedMaterial;
-                    if (origMat != null) {
-                        if (origMat.HasTexture ("_BaseMap"))
-                            mat.SetTexture ("_BaseMap", origMat.GetTexture ("_BaseMap"));
-                        else if (origMat.HasTexture ("_MainTex"))
-                            mat.SetTexture ("_BaseMap", origMat.GetTexture ("_MainTex"));
-                        if (origMat.HasColor ("_BaseColor"))
-                            mat.SetColor ("_BaseColor", origMat.GetColor ("_BaseColor"));
-                        else if (origMat.HasColor ("_Color"))
-                            mat.SetColor ("_BaseColor", origMat.GetColor ("_Color"));
-                    }
+                var targetShader = Shader.Find (showDebug ? previewShaderName : renderShaderName);
+                var mat = new Material (targetShader);
+                if (!showDebug && renderer.sharedMaterial != null) {
+                    mat.CopyPropertiesFromMaterial (renderer.sharedMaterial);
+                    mat.shader = targetShader; // CopyPropertiesFromMaterial also copies the source shader
                 }
                 mat.SetFloat ("_AOScale", aoScale);
                 mat.SetTexture ("_AOTex", aoTex);
                 renderer.material = mat;
+                aoMaterials[i] = mat;
             }
         }
 
         void Update () {
-
+            if (aoMaterials == null) return;
+            foreach (var mat in aoMaterials)
+                mat.SetFloat ("_AOScale", aoScale);
         }
 
         void DisposeResources () {

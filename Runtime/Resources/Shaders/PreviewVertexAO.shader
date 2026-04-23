@@ -5,7 +5,6 @@ Shader "ViewpointAO/PreviewVertexAO"
     Properties
     {
         _MainTex ("Base (RGB)", 2D) = "white" { }
-        _AOColor ("AO Color", Color) = (0, 0, 0, 1)
         _AOScale ("AO Scale", Range(0.0, 5.0)) = 1.0
         _AOTex ("AO Texture", 2D) = "white" { }
     }
@@ -31,7 +30,6 @@ Shader "ViewpointAO/PreviewVertexAO"
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
                 float4 _AOTex_ST;
-                float4 _AOColor;
                 float _AOScale;
             CBUFFER_END
 

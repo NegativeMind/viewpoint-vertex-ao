@@ -9,7 +9,6 @@ Shader "ViewpointAO/RenderWithVertexAO"
         _Metallic  ("Metallic",  Range(0,1))   = 0
         _Smoothness("Smoothness",Range(0,1))   = 0.5
         _AOTex     ("AO Texture", 2D)          = "white" {}
-        _AOColor   ("AO Color",  Color)         = (0,0,0,1)
         _AOScale   ("AO Scale",  Range(0,5))   = 1.0
     }
 
@@ -42,7 +41,6 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _AOTex_ST;
-                float4 _AOColor;
                 float  _AOScale;
                 float  _Metallic;
                 float  _Smoothness;
@@ -129,16 +127,18 @@ Shader "ViewpointAO/RenderWithVertexAO"
             HLSLPROGRAM
             #pragma vertex   vert
             #pragma fragment frag
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             float3 _LightDirection;
+            float3 _LightPosition;
+            float4 _ShadowBias; // x = depth bias, y = normal bias (set by URP)
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _AOTex_ST;
-                float4 _AOColor;
                 float  _AOScale;
                 float  _Metallic;
                 float  _Smoothness;
@@ -150,7 +150,15 @@ Shader "ViewpointAO/RenderWithVertexAO"
             {
                 float3 pw = TransformObjectToWorld(v.positionOS.xyz);
                 float3 nw = TransformObjectToWorldNormal(v.normalOS);
-                return TransformWorldToHClip(ApplyShadowBias(pw, nw, _LightDirection));
+                #ifdef _CASTING_PUNCTUAL_LIGHT_SHADOW
+                float3 lightDir = normalize(_LightPosition - pw);
+                #else
+                float3 lightDir = _LightDirection;
+                #endif
+                float invNdotL = 1.0 - saturate(dot(lightDir, nw));
+                pw += lightDir * _ShadowBias.x;
+                pw += nw * (invNdotL * _ShadowBias.y);
+                return TransformWorldToHClip(pw);
             }
             half4 frag() : SV_Target { return 0; }
             ENDHLSL
@@ -172,7 +180,6 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _AOTex_ST;
-                float4 _AOColor;
                 float  _AOScale;
                 float  _Metallic;
                 float  _Smoothness;

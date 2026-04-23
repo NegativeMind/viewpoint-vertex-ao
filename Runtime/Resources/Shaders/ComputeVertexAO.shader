@@ -35,8 +35,11 @@ Shader "ViewpointAO/ComputeVertexAO"
 
             sampler2D _AOTex2;
             uniform sampler2D _uVertex;
+            uniform sampler2D _uNormal;
             uniform float _uCount;
             uniform int _curCount;
+            uniform float _SpreadAngle;
+            uniform float3 _CameraWorldPos;
 
             float4x4 _VP;
             float4x4 _InverseView;
@@ -105,27 +108,31 @@ Shader "ViewpointAO/ComputeVertexAO"
             {
                 float2 uv = i.srcPos.xy / i.srcPos.w;
 
-
                 float3 vertex = tex2D(_uVertex, uv).xyz;
+                float3 normalRaw = tex2D(_uNormal, uv).xyz;
+                float3 normal = length(normalRaw) > 0.001 ? normalize(normalRaw) : float3(0, 1, 0);
+                float3 viewDir = normalize(_CameraWorldPos - vertex);
 
-                //Vertex in clip space
+                // spreadAngle [0,1]: 1 = full hemisphere, <1 = tighter cone around surface normal
+                float cosThreshold = cos(_SpreadAngle * 1.5707963f);
+                float inCone = dot(viewDir, normal) >= cosThreshold ? 1.0 : 0.0;
+
                 float4 vertexPos = mul(_VP, float4(vertex, 1.0));
                 float4 posInCamDepth = ComputeScreenPos(vertexPos);
                 posInCamDepth.xyz = posInCamDepth.xyz / posInCamDepth.w;
 
                 float z = depthFromDepthTexture(posInCamDepth).z;
+                float visible = abs(vertex.z - z) <= 0.01 ? 1.0 : 0.0;
 
-                float o = 2.0;//Higher than 1 to decrease texture darkness
-                if (abs(vertex.z - z) > 0.01)
-                {
-                    o = 0.0;
-                }
+                // R = visible-in-cone count, G = total-in-cone count
+                float src_ao    = tex2D(_AOTex2, uv).r;
+                float src_count = tex2D(_AOTex2, uv).g;
+                if (_curCount == 0) { src_ao = 0.0; src_count = 0.0; }
 
-                float src = tex2D(_AOTex2, uv).w;
-                if (_curCount == 0) src = 0.0f;//Fix clearing texture on OpenGL
+                src_ao    += inCone * visible;
+                src_count += inCone;
 
-                o = src + (o / _uCount);//Previous value + new value
-                return float4(o, o, o, o);
+                return float4(src_ao, src_count, 0, src_ao);
             }
 
             ENDHLSL
