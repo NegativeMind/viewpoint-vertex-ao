@@ -37,7 +37,7 @@ https://github.com/NegativeMind/viewpoint-based-AO.git#v1.0.0
    | `Spread Angle` | Cone half-angle around each vertex normal. `1.0` = full hemisphere, `0.0` = equatorial ring. Controls how much of the sphere contributes to each vertex's AO. |
    | `Sampling Level` | Number of viewpoints. Higher = better quality, longer bake time. |
    | `AO Scale` | Blend factor between no-occlusion (`0`) and full occlusion (`1`). |
-   | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values. |
+   | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values, and draws the viewpoint positions as gizmos in the Scene view. |
 
 3. **Play** the scene. AO is computed once during `Start()` and applied immediately.
 
@@ -74,41 +74,4 @@ https://github.com/Cyanilux/URP_BlitRenderFeature
 
 ## Algorithm
 
-```
-1. Viewpoint Distribution (Fibonacci Sphere)
-   - N viewpoints are distributed evenly on a sphere around the mesh
-     using the golden-angle Fibonacci spiral:
-       theta = goldenAngle * i
-       z     = lerp(+zRange, -zRange, i / N)
-       pos   = center + (cos(theta), sin(theta), z) * sqrt(1 - z²) * radius
-
-2. Per-Viewpoint Rendering
-   - The AO camera renders the scene with a depth buffer from each viewpoint.
-   - A fullscreen blit runs ComputeVertexAO.shader, which for each texel
-     (corresponding to one vertex) does:
-
-     a. Cone filter: only count the viewpoint if it lies within the
-        cone around the vertex normal:
-          cosThreshold = cos(spreadAngle * PI/2)
-          inCone       = dot(normalize(cameraPos - vertexPos), normal) >= cosThreshold
-
-     b. Depth visibility test: project the vertex into the current
-        camera's clip space and compare its Z to the depth buffer:
-          visible = |vertex.z - depthBuffer.z| <= epsilon ? 1.0 : 0.0
-
-     c. Welford running average (avoids storing all N results):
-          new_count = old_count + 1
-          new_ao    = old_ao + (visible - old_ao) / new_count
-
-3. Result Readback
-   - After all viewpoints, the R channel holds the mean visibility in [0, 1].
-   - 1 = fully visible (no occlusion), 0 = fully occluded.
-
-4. Baking
-   - UV2 is generated so each vertex maps to its texel in the AO texture.
-   - Vertex colors are written with the AO value in all channels (RGBA).
-   - The mesh's material is replaced with RenderWithVertexAO (PBR) or
-     PreviewVertexAO (grayscale debug), both reading from UV2.
-   - AO is fed into surfaceData.occlusion, which darkens only indirect
-     (ambient/GI) lighting — identical to URP/Lit with an Occlusion Map.
-```
+N viewpoints are distributed on a sphere around the mesh using a Fibonacci spiral. The scene is rendered from each viewpoint with a depth buffer. For each vertex, the shader checks whether the viewpoint falls within the cone around the vertex normal (`Spread Angle`), and if so, tests visibility against the depth buffer. Visibility results are accumulated as a running average. The final value per vertex is a mean visibility in [0, 1] (1 = no occlusion, 0 = fully occluded), which is baked into a texture and applied to `surfaceData.occlusion` — darkening only indirect (ambient/GI) lighting, identical to URP/Lit with an Occlusion Map.
