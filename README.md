@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is computed once at runtime on initialization and baked into the material — there is no per-frame overhead after that. The result matches the visual appearance of URP/Lit with an Occlusion Map.
+A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is computed once at runtime on initialization and baked into the material — there is no per-frame overhead after that. The result matches the visual appearance of URP/Lit with an Occlusion Map. Because AO is stored in auto-generated UV2 coordinates and vertex colors, the mesh does not need pre-existing UV unwrapping.
 
 ## Requirements
 
