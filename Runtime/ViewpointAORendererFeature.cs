@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 namespace ViewpointBasedAO {
 
 	/// <summary>
-	/// URP用のViewpointAO Renderer Feature
+	/// URP Renderer Feature for Viewpoint-Based AO. Blits the AO compute pass into the destination render texture.
 	/// </summary>
 	public class ViewpointAORendererFeature : ScriptableRendererFeature {
 
@@ -101,7 +101,7 @@ namespace ViewpointBasedAO {
 				return;
 			}
 
-			// RenderTextureObject の場合は毎回 dst を更新する (動的変更に対応)
+			// Re-allocate the dst handle each pass so runtime RenderTexture swaps are picked up
 			if (settings.dstType == Target.RenderTextureObject) {
 				UpdateDstIdentifier ();
 			}

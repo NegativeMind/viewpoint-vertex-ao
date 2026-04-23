@@ -7,8 +7,8 @@ using UnityEngine.Rendering.Universal;
 
 namespace ViewpointBasedAO {
     /// <summary>
-    /// GameObjectにアタッチするだけでGeometric Ambient Occlusionを計算・適用するコンポーネント。
-    /// URP RendererDataの検出・RendererFeatureの追加・レイヤー確保を自動で行う。
+    /// MonoBehaviour entry point for Viewpoint-Based AO. Attach to a GameObject to compute and apply AO.
+    /// Automatically detects URP RendererData, adds the RendererFeature, and reserves a layer.
     /// </summary>
     public class ViewpointAOBehaviour : MonoBehaviour {
 
@@ -87,7 +87,7 @@ namespace ViewpointBasedAO {
         }
 
         // ---------------------------------------------------------------------------------
-        // セットアップ
+        // Setup
         // ---------------------------------------------------------------------------------
 
         static UniversalRendererData FindRendererData () {
@@ -119,7 +119,7 @@ namespace ViewpointBasedAO {
             return result;
         }
 
-        // "AOLayer" がプロジェクトに存在すれば優先、なければ空きレイヤー(8-31)を使用
+        // Use the "AOLayer" layer if it exists in the project; otherwise find a free slot (8–31)
         static int FindAvailableLayer () {
             int named = LayerMask.NameToLayer ("AOLayer");
             if (named >= 0) return named;
@@ -144,11 +144,11 @@ namespace ViewpointBasedAO {
         }
 
         // ---------------------------------------------------------------------------------
-        // AO 計算
+        // AO Computation
         // ---------------------------------------------------------------------------------
 
         void InitializeObjectAndGetBounds () {
-            // アタッチした GameObject 配下の MeshFilter を全取得
+            // Collect all MeshFilters under the attached GameObject
             meshFilters = GetComponentsInChildren<MeshFilter> ()
                 .Where (mf => mf.GetComponent<MeshRenderer> () != null)
                 .ToArray ();
@@ -198,7 +198,7 @@ namespace ViewpointBasedAO {
         }
 
         void CreateAoCamera () {
-            // 専用 GameObject にカメラを作成し、AO 計算後に破棄する
+            // Create a dedicated camera for AO computation; destroyed after baking
             aoCameraGO = new GameObject (cameraName);
             aoCamera = aoCameraGO.AddComponent<Camera> ();
 
@@ -241,7 +241,7 @@ namespace ViewpointBasedAO {
                 filterMode = FilterMode.Point
             };
 
-            // RenderTexture をセット後 Create() を再呼び出しして反映
+            // Re-call Create() after assigning the RenderTexture so the feature picks it up
             ConfigureFeatureSettings (dynamicFeature, aoRenderTexture);
             rendererData.SetDirty ();
         }
@@ -383,7 +383,7 @@ namespace ViewpointBasedAO {
         }
 
         void DisposeResources () {
-            // 動的に追加した RendererFeature を削除
+            // Remove the dynamically added RendererFeature
             if (dynamicFeature != null) {
                 rendererData.rendererFeatures.Remove (dynamicFeature);
                 Object.DestroyImmediate (dynamicFeature);
@@ -391,7 +391,7 @@ namespace ViewpointBasedAO {
                 rendererData.SetDirty ();
             }
 
-            // AO 計算用の一時カメラを破棄
+            // Destroy the temporary AO camera
             if (aoCameraGO != null) {
                 Destroy (aoCameraGO);
                 aoCameraGO = null;
@@ -400,7 +400,7 @@ namespace ViewpointBasedAO {
         }
 
         void OnDestroy () {
-            // 途中で破棄された場合のフォールバッククリーンアップ
+            // Fallback cleanup if the component is destroyed before Start() finishes
             DisposeResources ();
         }
 

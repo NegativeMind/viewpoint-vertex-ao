@@ -1,6 +1,6 @@
 namespace ViewpointBasedAO {
     /// <summary>
-    /// Ambient Occlusionのサンプリングレベルを定義するenum
+    /// Number of viewpoints used for AO sampling. Higher values produce better quality at the cost of longer bake time.
     /// </summary>
     public enum AOSamplingLevel {
         VeryLow = 16,

@@ -3,7 +3,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace ViewpointBasedAO {
     /// <summary>
-    /// ViewpointAO Renderer Featureの設定クラス
+    /// Settings for the ViewpointAO Renderer Feature.
     /// </summary>
     [System.Serializable]
     public class ViewpointAOSettings {
@@ -30,7 +30,7 @@ namespace ViewpointBasedAO {
     }
 
     /// <summary>
-    /// レンダーターゲットの種類を定義するenum
+    /// Specifies how a render target is identified.
     /// </summary>
     public enum Target {
         CameraColor,

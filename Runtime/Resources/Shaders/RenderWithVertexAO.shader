@@ -105,7 +105,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 surfaceData.metallic    = _Metallic;
                 surfaceData.smoothness  = _Smoothness;
                 surfaceData.normalTS    = half3(0, 0, 1);
-                // aoVal [0,1]: 1=遮蔽なし, 0=完全遮蔽 → URP/Lit の OcclusionMap と同等
+                // aoVal [0,1]: 1 = no occlusion, 0 = fully occluded — equivalent to URP/Lit OcclusionMap
                 surfaceData.occlusion   = lerp(1.0h, i.aoVal, (half)_AOScale);
 
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
