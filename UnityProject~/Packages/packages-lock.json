@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.negativemind.viewpoint-based-ao": {
+    "com.negativemind.viewpoint-vertex-ao": {
       "version": "file:../../",
       "depth": 0,
       "source": "local",
