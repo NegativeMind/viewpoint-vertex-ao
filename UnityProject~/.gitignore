@@ -98,6 +98,3 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
-# Private assets — do not commit
-/Assets/Models/avant_gamera.obj
-/Assets/Models/avant_gamera.obj.meta
