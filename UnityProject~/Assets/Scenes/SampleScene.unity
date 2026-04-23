@@ -263,9 +263,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b75dd433530cc8c4cbfb1338cf7f6bb4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  aoScale: 1
   spreadAngle: 0.8
   samplingLevel: 144
+  aoScale: 1
   showDebug: 0
 --- !u!1 &962322756
 GameObject:

@@ -9,7 +9,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
         _Metallic  ("Metallic",  Range(0,1))   = 0
         _Smoothness("Smoothness",Range(0,1))   = 0.5
         _AOTex     ("AO Texture", 2D)          = "white" {}
-        _AOScale   ("AO Scale",  Range(0,5))   = 1.0
+        _AOScale   ("AO Scale",  Range(0,1))   = 1.0
     }
 
     SubShader
@@ -89,9 +89,6 @@ Shader "ViewpointAO/RenderWithVertexAO"
             {
                 half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
 
-                // aoVal [0,1]: 1=可視, 0=遮蔽 → baseColor に直接乗算
-                half3 albedo = baseColor.rgb * lerp(1.0h, i.aoVal, (half)_AOScale);
-
                 InputData inputData = (InputData)0;
                 inputData.positionWS              = i.positionWS;
                 inputData.normalWS                = normalize(i.normalWS);
@@ -103,12 +100,13 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 inputData.shadowMask              = unity_ProbesOcclusion;
 
                 SurfaceData surfaceData = (SurfaceData)0;
-                surfaceData.albedo      = albedo;
+                surfaceData.albedo      = baseColor.rgb;
                 surfaceData.alpha       = baseColor.a;
                 surfaceData.metallic    = _Metallic;
                 surfaceData.smoothness  = _Smoothness;
                 surfaceData.normalTS    = half3(0, 0, 1);
-                surfaceData.occlusion   = 1.0h;
+                // aoVal [0,1]: 1=遮蔽なし, 0=完全遮蔽 → URP/Lit の OcclusionMap と同等
+                surfaceData.occlusion   = lerp(1.0h, i.aoVal, (half)_AOScale);
 
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
                 color.rgb = MixFog(color.rgb, i.fogFactor);

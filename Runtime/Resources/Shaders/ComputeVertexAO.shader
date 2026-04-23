@@ -124,13 +124,17 @@ Shader "ViewpointAO/ComputeVertexAO"
                 float z = depthFromDepthTexture(posInCamDepth).z;
                 float visible = abs(vertex.z - z) <= 0.01 ? 1.0 : 0.0;
 
-                // R = visible-in-cone count, G = total-in-cone count
+                // R = running average of visibility [0,1], G = in-cone sample count
                 float src_ao    = tex2D(_AOTex2, uv).r;
                 float src_count = tex2D(_AOTex2, uv).g;
-                if (_curCount == 0) { src_ao = 0.0; src_count = 0.0; }
+                if (_curCount == 0) { src_ao = 1.0; src_count = 0.0; }
 
-                src_ao    += inCone * visible;
-                src_count += inCone;
+                if (inCone > 0.5)
+                {
+                    float new_count = src_count + 1.0;
+                    src_ao    = src_ao + (visible - src_ao) / new_count;
+                    src_count = new_count;
+                }
 
                 return float4(src_ao, src_count, 0, src_ao);
             }

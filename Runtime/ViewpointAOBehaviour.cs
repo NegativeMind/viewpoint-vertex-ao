@@ -321,11 +321,11 @@ namespace ViewpointBasedAO {
             raw.Apply (false, false);
             RenderTexture.active = null;
 
-            // R = visible-in-cone count, G = total-in-cone count → normalize to [0, 2]
+            // R = running average of visibility [0,1] (computed in shader); copy to all channels
             Color[] pixels = raw.GetPixels ();
             Object.DestroyImmediate (raw);
             for (int i = 0; i < pixels.Length; i++) {
-                float v = pixels[i].g > 0f ? (pixels[i].r / pixels[i].g) * 2f : 2f;
+                float v = pixels[i].r;
                 pixels[i] = new Color (v, v, v, v);
             }
 
