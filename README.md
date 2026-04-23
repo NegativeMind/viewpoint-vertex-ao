@@ -2,6 +2,53 @@
 
 A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is baked once at runtime and applied as a URP PBR material with an occlusion map, matching the visual result of URP/Lit with an Occlusion Map texture.
 
+## Requirements
+
+- Unity 2022.3 or later
+- Universal Render Pipeline (URP) 14.x
+
+## Installation
+
+### Package Manager UI (recommended)
+
+1. Open **Window > Package Manager**.
+2. Click the **+** button in the top-left corner and choose **Add package from git URL…**
+3. Enter the following URL and click **Add**:
+
+```
+https://github.com/NegativeMind/viewpoint-based-AO.git
+```
+
+To install a specific version, append the tag:
+
+```
+https://github.com/NegativeMind/viewpoint-based-AO.git#v1.0.0
+```
+
+
+## Usage
+
+1. **Attach** `ViewpointAOBehaviour` to any GameObject that has `MeshFilter` + `MeshRenderer` components (child objects are included automatically).
+
+2. **Configure** the component in the Inspector:
+
+   | Property | Description |
+   |---|---|
+   | `Spread Angle` | Cone half-angle around each vertex normal. `1.0` = full hemisphere, `0.0` = equatorial ring. Controls how much of the sphere contributes to each vertex's AO. |
+   | `Sampling Level` | Number of viewpoints. Higher = better quality, longer bake time. |
+   | `AO Scale` | Blend factor between no-occlusion (`0`) and full occlusion (`1`). |
+   | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values. |
+
+3. **Play** the scene. AO is computed once during `Start()` and applied immediately.
+
+### Notes
+
+- The mesh's material is replaced at runtime. The original material's properties (base texture, color, metallic, smoothness) are copied to the new material via `CopyPropertiesFromMaterial`.
+- A layer slot (8–31, or a layer named `"AOLayer"`) is reserved temporarily during computation and restored afterwards.
+- AO is not recalculated at runtime after `Start()`. Re-enter Play mode to recompute.
+- The `_VERTEX_COLOR_AO` shader keyword enables reading AO from vertex colors instead of UV2, for use with custom shaders that need AO in the `COLOR` semantic.
+
+
 ## References
 
 ### Paper
@@ -65,49 +112,3 @@ https://github.com/Cyanilux/URP_BlitRenderFeature
    - AO is fed into surfaceData.occlusion, which darkens only indirect
      (ambient/GI) lighting — identical to URP/Lit with an Occlusion Map.
 ```
-
-## Requirements
-
-- Unity 2022.3 or later
-- Universal Render Pipeline (URP) 14.x
-
-## Installation
-
-### Package Manager UI (recommended)
-
-1. Open **Window > Package Manager**.
-2. Click the **+** button in the top-left corner and choose **Add package from git URL…**
-3. Enter the following URL and click **Add**:
-
-```
-https://github.com/NegativeMind/viewpoint-based-AO.git
-```
-
-To install a specific version, append the tag:
-
-```
-https://github.com/NegativeMind/viewpoint-based-AO.git#v1.0.0
-```
-
-
-## Usage
-
-1. **Attach** `ViewpointAOBehaviour` to any GameObject that has `MeshFilter` + `MeshRenderer` components (child objects are included automatically).
-
-2. **Configure** the component in the Inspector:
-
-   | Property | Description |
-   |---|---|
-   | `Spread Angle` | Cone half-angle around each vertex normal. `1.0` = full hemisphere, `0.0` = equatorial ring. Controls how much of the sphere contributes to each vertex's AO. |
-   | `Sampling Level` | Number of viewpoints. Higher = better quality, longer bake time. |
-   | `AO Scale` | Blend factor between no-occlusion (`0`) and full occlusion (`1`). |
-   | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values. |
-
-3. **Play** the scene. AO is computed once during `Start()` and applied immediately.
-
-### Notes
-
-- The mesh's material is replaced at runtime. The original material's properties (base texture, color, metallic, smoothness) are copied to the new material via `CopyPropertiesFromMaterial`.
-- A layer slot (8–31, or a layer named `"AOLayer"`) is reserved temporarily during computation and restored afterwards.
-- AO is not recalculated at runtime after `Start()`. Re-enter Play mode to recompute.
-- The `_VERTEX_COLOR_AO` shader keyword enables reading AO from vertex colors instead of UV2, for use with custom shaders that need AO in the `COLOR` semantic.
