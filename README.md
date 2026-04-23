@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![PBR with AO](Documentation~/pbr_with_ao.png)
+
 A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is computed once at runtime on initialization and baked into the material — there is no per-frame overhead after that. The result matches the visual appearance of URP/Lit with an Occlusion Map. Because AO is stored in auto-generated UV2 coordinates and vertex colors, the mesh does not need pre-existing UV unwrapping.
 
 ## Requirements
@@ -42,6 +44,10 @@ https://github.com/NegativeMind/viewpoint-based-AO.git#v1.0.0
    | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values, and draws the viewpoint positions as gizmos in the Scene view. |
 
 3. **Play** the scene. AO is computed once during `Start()` and applied immediately.
+
+| Without AO | AO debug view (`Show Debug`) |
+|---|---|
+| ![PBR only](Documentation~/pbr_only.png) | ![AO only](Documentation~/ao_only.png) |
 
 ### Notes
 
