@@ -1,5 +1,7 @@
 # Viewpoint-Based Ambient Occlusion for Unity URP
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is baked once at runtime and applied as a URP PBR material with an occlusion map, matching the visual result of URP/Lit with an Occlusion Map texture.
 
 ## Requirements
