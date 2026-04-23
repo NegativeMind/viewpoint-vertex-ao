@@ -1,4 +1,4 @@
-# Viewpoint-Based Ambient Occlusion for Unity URP
+# Viewpoint-Based Per-Vertex Ambient Occlusion for Unity URP
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
