@@ -18,7 +18,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/NegativeMind/viewpoint-based-AO.git"
+        "url": "https://github.com/NegativeMind/viewpoint-vertex-ao.git"
     },
     "license": "MIT",
     "dependencies": {
