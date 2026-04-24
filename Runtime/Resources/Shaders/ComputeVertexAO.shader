@@ -31,11 +31,11 @@ Shader "ViewpointAO/ComputeVertexAO"
             #pragma fragment frag
             // #include "UnityCG.cginc"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
             sampler2D _AOTex2;
             uniform sampler2D _uVertex;
             uniform sampler2D _uNormal;
+            uniform sampler2D _ExplicitDepth; // depth captured via AODepthCapture.shader: [0,1], 0=near, 1=far
             uniform float _uCount;
             uniform int _curCount;
             uniform float _SpreadAngle;
@@ -85,17 +85,14 @@ Shader "ViewpointAO/ComputeVertexAO"
                 float4 posInCamDepth = ComputeScreenPos(vertexPos);
                 posInCamDepth.xyz = posInCamDepth.xyz / posInCamDepth.w;
 
-                // Compare clip-space depth directly — avoids any dependency on _InverseView.
-                // _VP (set from C#) maps to [0,1] for D3D/Metal (near=0, far=1).
-                // SampleSceneDepth on D3D/Metal is reversed (near=1, far=0), so flip it.
-                // On OpenGL _VP is not remapped, so NDC z ∈ [-1,1]; map to [0,1] to match.
+                // _ExplicitDepth is rendered by AODepthCapture.shader: [0,1], 0=near, 1=far on all platforms.
+                // d_vertex uses the same convention (C# adjusts _VP so D3D gives [0,1] 0=near,1=far;
+                // on OpenGL remap from [-1,1]).
                 float d_vertex = vertexPos.z / vertexPos.w;
-                #if defined(UNITY_REVERSED_Z)
-                    float d_scene = 1.0 - SampleSceneDepth(posInCamDepth.xy);
-                #else
+                #if !defined(UNITY_REVERSED_Z)
                     d_vertex = d_vertex * 0.5 + 0.5;
-                    float d_scene = SampleSceneDepth(posInCamDepth.xy);
                 #endif
+                float d_scene = tex2D(_ExplicitDepth, posInCamDepth.xy).r;
                 float visible = abs(d_vertex - d_scene) <= 0.005 ? 1.0 : 0.0;
 
                 // R = running average of visibility [0,1], G = in-cone sample count

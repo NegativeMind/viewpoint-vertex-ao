@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -38,8 +36,8 @@ namespace NegativeMind.ViewpointVertexAO {
         GameObject aoCameraGO;
         int aoLayerIndex = -1;
 
-        UniversalRendererData rendererData;
-        AORendererFeature dynamicFeature;
+        RenderTexture depthCaptureRT;
+        Material depthCaptureMat;
 
         const string cameraName = "ViewpointAOCamera";
         const string computeShaderName = "ViewpointAO/ComputeVertexAO";
@@ -47,13 +45,6 @@ namespace NegativeMind.ViewpointVertexAO {
         const string previewShaderName = "ViewpointAO/PreviewVertexAO";
 
         void Awake () {
-            rendererData = FindRendererData ();
-            if (rendererData == null) {
-                Debug.LogError ("[ViewpointAO] URP の UniversalRendererData が見つかりません。プロジェクトが URP を使用しているか確認してください。");
-                enabled = false;
-                return;
-            }
-
             aoLayerIndex = FindAvailableLayer ();
             if (aoLayerIndex < 0) {
                 Debug.LogError ("[ViewpointAO] AO 計算用の空きレイヤーがありません (Layer 8-31 がすべて使用中)。");
@@ -63,12 +54,13 @@ namespace NegativeMind.ViewpointVertexAO {
 
             ambientOcclusionMat = new Material (Shader.Find (computeShaderName));
 
-            // RendererFeature を動的に追加
-            dynamicFeature = ScriptableObject.CreateInstance<AORendererFeature> ();
-            dynamicFeature.name = "ViewpointAO_Dynamic";
-            ConfigureFeatureSettings (dynamicFeature, null);
-            rendererData.rendererFeatures.Add (dynamicFeature);
-            rendererData.SetDirty ();
+            var depthCaptureShader = Shader.Find ("Hidden/ViewpointAO/AODepthCapture");
+            if (depthCaptureShader == null) {
+                Debug.LogError ("[ViewpointAO] AODepthCapture シェーダーが見つかりません。");
+                enabled = false;
+                return;
+            }
+            depthCaptureMat = new Material (depthCaptureShader);
         }
 
         void Start () {
@@ -90,35 +82,6 @@ namespace NegativeMind.ViewpointVertexAO {
         // Setup
         // ---------------------------------------------------------------------------------
 
-        static UniversalRendererData FindRendererData () {
-            var rpa = GraphicsSettings.currentRenderPipeline ??
-                GraphicsSettings.renderPipelineAsset;
-            var pipeline = rpa as UniversalRenderPipelineAsset;
-            if (pipeline == null) {
-                Debug.LogError ($"[ViewpointAO] URP が見つかりません。Project Settings > Graphics で URP アセットを設定してください。({(rpa == null ? "null" : rpa.GetType().Name)})");
-                return null;
-            }
-
-            // URP の非公開フィールド m_RendererDataList をリフレクションで取得
-            var field = typeof (UniversalRenderPipelineAsset)
-                .GetField ("m_RendererDataList", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field == null) {
-                Debug.LogError ("[ViewpointAO] m_RendererDataList フィールドが見つかりません。URP のバージョンが非対応の可能性があります。");
-                return null;
-            }
-
-            var dataList = field.GetValue (pipeline) as ScriptableRendererData[];
-            if (dataList == null) {
-                Debug.LogError ("[ViewpointAO] m_RendererDataList のキャストに失敗しました。");
-                return null;
-            }
-
-            var result = dataList.OfType<UniversalRendererData> ().FirstOrDefault ();
-            if (result == null)
-                Debug.LogError ($"[ViewpointAO] RendererDataList に UniversalRendererData がありません。件数: {dataList.Length}, 型: {string.Join(", ", dataList.Select(d => d?.GetType().Name ?? "null"))}");
-            return result;
-        }
-
         // Use the "AOLayer" layer if it exists in the project; otherwise find a free slot (8–31)
         static int FindAvailableLayer () {
             int named = LayerMask.NameToLayer ("AOLayer");
@@ -128,19 +91,6 @@ namespace NegativeMind.ViewpointVertexAO {
                 if (string.IsNullOrEmpty (LayerMask.LayerToName (i))) return i;
             }
             return -1;
-        }
-
-        void ConfigureFeatureSettings (AORendererFeature feature, RenderTexture dstTexture) {
-            var s = feature.settings;
-            s.blitMaterial = ambientOcclusionMat;
-            s.setInverseViewMatrix = true;
-            s.dstType = Target.RenderTextureObject;
-            s.dstTextureObject = dstTexture;
-            s.cameraName = cameraName;
-            s.requireDepth = true;
-            s.overrideGraphicsFormat = true;
-            s.graphicsFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R16G16B16A16_SFloat;
-            feature.Create ();
         }
 
         // ---------------------------------------------------------------------------------
@@ -202,7 +152,7 @@ namespace NegativeMind.ViewpointVertexAO {
             aoCameraGO = new GameObject (cameraName);
             aoCamera = aoCameraGO.AddComponent<Camera> ();
 
-            aoCamera.enabled = true;
+            aoCamera.enabled = false;
             aoCamera.orthographic = true;
             aoCamera.cullingMask = 1 << aoLayerIndex;
             aoCamera.clearFlags = CameraClearFlags.Depth;
@@ -215,16 +165,20 @@ namespace NegativeMind.ViewpointVertexAO {
             aoCamera.orthographicSize = radSurface * 1.1f;
             aoCamera.farClipPlane = radSurface * 2f;
             aoCamera.aspect = 1f;
-            aoCamera.stereoTargetEye = StereoTargetEyeMask.None; // prevent XR from overriding projection/depth in VR
+            aoCamera.stereoTargetEye = StereoTargetEyeMask.None;
 
             var camData = aoCamera.GetUniversalAdditionalCameraData ();
-            camData.allowXRRendering = false; // prevent URP/XR from applying stereo matrices during AO computation
+            camData.allowXRRendering = false;
             camData.renderShadows = false;
-            camData.requiresColorOption = CameraOverrideOption.On;
-            camData.requiresDepthOption = CameraOverrideOption.On;
-            camData.renderPostProcessing = true;
 
             int height = Mathf.CeilToInt (allVertexCount / (float) vertByRow);
+
+            // Depth capture RT: 256×256 square for scene depth rendering.
+            // RFloat gives full precision; depth format (24) enables correct fragment ordering.
+            depthCaptureRT = new RenderTexture (256, 256, 24, RenderTextureFormat.RFloat) {
+                filterMode = FilterMode.Bilinear,
+                anisoLevel = 0
+            };
 
             aoRenderTexture = new RenderTexture (vertByRow, height, 0, RenderTextureFormat.ARGBHalf) {
                 anisoLevel = 0,
@@ -242,10 +196,6 @@ namespace NegativeMind.ViewpointVertexAO {
                 anisoLevel = 0,
                 filterMode = FilterMode.Point
             };
-
-            // Re-call Create() after assigning the RenderTexture so the feature picks it up
-            ConfigureFeatureSettings (dynamicFeature, aoRenderTexture);
-            rendererData.SetDirty ();
         }
 
         void VertexDataToTexture () {
@@ -283,8 +233,8 @@ namespace NegativeMind.ViewpointVertexAO {
             ambientOcclusionMat.SetTexture ("_uNormal", vertexNormalsTexture);
             ambientOcclusionMat.SetFloat ("_SpreadAngle", spreadAngle);
 
-            for (int i = 0; i < meshFilters.Length; i++)
-                meshFilters[i].gameObject.layer = aoLayerIndex;
+            bool d3d = SystemInfo.graphicsDeviceVersion.IndexOf ("Direct3D") > -1;
+            bool metal = SystemInfo.graphicsDeviceVersion.IndexOf ("Metal") > -1;
 
             for (int i = 0; i < (int) samplingLevel; i++) {
                 aoCamera.transform.position = rayDirection[i];
@@ -292,19 +242,31 @@ namespace NegativeMind.ViewpointVertexAO {
 
                 Matrix4x4 V = aoCamera.worldToCameraMatrix;
                 Matrix4x4 P = aoCamera.projectionMatrix;
-
-                bool d3d = SystemInfo.graphicsDeviceVersion.IndexOf ("Direct3D") > -1;
-                bool metal = SystemInfo.graphicsDeviceVersion.IndexOf ("Metal") > -1;
                 if (d3d || metal) {
                     for (int a = 0; a < 4; a++) P[1, a] = -P[1, a];
                     for (int a = 0; a < 4; a++) P[2, a] = P[2, a] * 0.5f + P[3, a] * 0.5f;
                 }
 
+                // Render scene depth via CommandBuffer — works reliably in URP.
+                // RenderWithShader is not guaranteed to invoke the replacement shader through URP.
+                var cmd = new CommandBuffer { name = "AO Depth Capture" };
+                cmd.SetRenderTarget (depthCaptureRT);
+                cmd.ClearRenderTarget (true, true, Color.white);
+                cmd.SetViewProjectionMatrices (aoCamera.worldToCameraMatrix, aoCamera.projectionMatrix);
+                foreach (var mf in meshFilters) {
+                    for (int sub = 0; sub < mf.sharedMesh.subMeshCount; sub++)
+                        cmd.DrawMesh (mf.sharedMesh, mf.transform.localToWorldMatrix, depthCaptureMat, sub, 0);
+                }
+                Graphics.ExecuteCommandBuffer (cmd);
+                cmd.Release ();
+
+                ambientOcclusionMat.SetTexture ("_ExplicitDepth", depthCaptureRT);
                 ambientOcclusionMat.SetMatrix ("_VP", P * V);
                 ambientOcclusionMat.SetInt ("_curCount", i);
                 ambientOcclusionMat.SetVector ("_CameraWorldPos", rayDirection[i]);
-                aoCamera.Render ();
 
+                // Compute AO directly — no URP renderer pass needed.
+                Graphics.Blit (aoRenderTextureForShader, aoRenderTexture, ambientOcclusionMat);
                 Graphics.CopyTexture (aoRenderTexture, aoRenderTextureForShader);
             }
 
@@ -385,15 +347,16 @@ namespace NegativeMind.ViewpointVertexAO {
         }
 
         void DisposeResources () {
-            // Remove the dynamically added RendererFeature
-            if (dynamicFeature != null) {
-                rendererData.rendererFeatures.Remove (dynamicFeature);
-                Object.DestroyImmediate (dynamicFeature);
-                dynamicFeature = null;
-                rendererData.SetDirty ();
+            if (depthCaptureRT != null) {
+                depthCaptureRT.Release ();
+                depthCaptureRT = null;
             }
 
-            // Destroy the temporary AO camera
+            if (depthCaptureMat != null) {
+                Destroy (depthCaptureMat);
+                depthCaptureMat = null;
+            }
+
             if (aoCameraGO != null) {
                 Destroy (aoCameraGO);
                 aoCameraGO = null;

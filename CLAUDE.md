@@ -40,53 +40,65 @@ viewpoint-based-AO/          ← repo root = package root
 | Class | Role |
 |---|---|
 | `AOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
-| `AORendererFeature` | URP Renderer Feature. Handles per-camera blit into the AO render texture. |
-| `AORendererPass` | ScriptableRenderPass implementation. Uses `RTHandle` API (URP 14). |
-| `AOSettings` | Settings data for the Renderer Feature. |
 | `SamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
+| `AORendererFeature` | URP Renderer Feature (not used by `AOBehaviour` — retained for potential custom integration). |
+| `AORendererPass` | ScriptableRenderPass implementation (not used by `AOBehaviour`). |
+| `AOSettings` | Settings data for `AORendererFeature` (not used by `AOBehaviour`). |
 
 ## Shaders
 
 | File | Shader name | Purpose |
 |---|---|---|
-| `ComputeVertexAO.shader` | `ViewpointAO/ComputeVertexAO` | AO accumulation per viewpoint (camera blit). Runs a Welford online average: R = mean visibility [0,1], G = in-cone sample count. Applies per-vertex normal cone filter via `_SpreadAngle`. Internal use only — not for end-user materials. |
-| `RenderWithVertexAO.shader` | `ViewpointAO/RenderWithVertexAO` | Full URP PBR display with vertex AO applied. AO is fed into `surfaceData.occlusion` (affects indirect/ambient light only, matching URP/Lit Occlusion Map). Supports two modes via `_VERTEX_COLOR_AO` keyword: off = sample `_AOTex` via UV2, on = read AO from vertex color R channel. |
-| `PreviewVertexAO.shader` | `ViewpointAO/PreviewVertexAO` | Lightweight non-PBR debug display. Samples `_AOTex` via UV2 and outputs the raw AO value as grayscale (white = no occlusion, black = fully occluded). |
+| `AODepthCapture.shader` | `Hidden/ViewpointAO/AODepthCapture` | Depth-only capture shader. Invoked via `CommandBuffer.DrawMesh` once per viewpoint. Outputs normalized depth [0,1] (0 = near, 1 = far) on all platforms by compensating for `UNITY_REVERSED_Z`. Internal use only. |
+| `ComputeVertexAO.shader` | `ViewpointAO/ComputeVertexAO` | AO accumulation per viewpoint (`Graphics.Blit`). Runs a Welford online average: R = mean visibility [0,1], G = in-cone sample count. Applies per-vertex normal cone filter via `_SpreadAngle`. Depth test compares `d_vertex` (from `_VP` matrix) against `_ExplicitDepth` (from `AODepthCapture`). Internal use only — not for end-user materials. |
+| `RenderWithVertexAO.shader` | `ViewpointAO/RenderWithVertexAO` | Full URP PBR display with vertex AO applied. AO is fed into `surfaceData.occlusion` (affects indirect/ambient light only, matching URP/Lit Occlusion Map). Supports two modes via `_VERTEX_COLOR_AO` keyword: off = sample `_AOTex` via UV2, on = read AO from vertex color R channel. Includes full XR stereo instancing macros. |
+| `PreviewVertexAO.shader` | `ViewpointAO/PreviewVertexAO` | Lightweight non-PBR debug display. Samples `_AOTex` via UV2 and outputs the raw AO value as grayscale (white = no occlusion, black = fully occluded). Includes full XR stereo instancing macros. |
 
 ## AO Computation Flow
 
 ```
 Awake()
-  ├─ Find UniversalRendererData via reflection (m_RendererDataList)
-  ├─ Reserve a free layer for the AO camera
-  └─ Dynamically add AORendererFeature to the renderer
+  ├─ Reserve a free layer slot (8–31, or named "AOLayer") — stored but unused in practice
+  ├─ Create ambientOcclusionMat  (ComputeVertexAO shader)
+  └─ Create depthCaptureMat      (AODepthCapture shader)
 
 Start()
-  ├─ InitializeObjectAndGetBounds()  — collect MeshFilters, compute bounds
-  ├─ GenerateSamplePositions()       — distribute viewpoints on a Fibonacci sphere (full sphere,
-  │                                    spreadAngle cone filter is applied per-vertex in the shader)
-  ├─ CreateAoCamera()                — create dedicated AO camera + RenderTextures
-  ├─ VertexDataToTexture()           — pack vertex world positions AND world normals into Texture2Ds
+  ├─ InitializeObjectAndGetBounds()  — collect MeshFilters, compute bounds,
+  │                                    save + override shadowCastingMode → TwoSided
+  ├─ GenerateSamplePositions()       — distribute viewpoints on a Fibonacci sphere
+  │                                    (spreadAngle cone filter is applied per-vertex in the shader)
+  ├─ CreateAoCamera()                — create disabled camera (used only for transform + matrices)
+  │                                    allocate: depthCaptureRT (256×256 RFloat, depth=24),
+  │                                              aoRenderTexture / aoRenderTextureForShader (ARGBHalf),
+  │                                              vertexPositionsTexture / vertexNormalsTexture (RGBAFloat)
+  ├─ VertexDataToTexture()           — pack vertex world positions and world normals into Texture2Ds
   ├─ ComputeAmbientOcclusion()       — for each viewpoint:
-  │    ├─ set _uNormal, _SpreadAngle (once), _CameraWorldPos, _VP (per viewpoint)
-  │    ├─ aoCamera.Render() → blit via ComputeVertexAO.shader
-  │    │    (cone filter + depth visibility test + Welford running average)
-  │    └─ CopyTexture(aoRenderTexture → aoRenderTextureForShader) for next iteration
-  ├─ ReadAOResult()                  — read R channel (normalized [0,1]) → Texture2D (RGBAHalf)
-  ├─ BakeAO(aoTex)                   — simultaneously:
-  │    ├─ set mesh.uv2 (UV2 pointing into the AO texture)
-  │    ├─ set mesh.colors (AO value in all channels)
-  │    └─ apply RenderWithVertexAO material (_AOTex = aoTex, read via UV2)
-  └─ DisposeResources()              — remove RendererFeature, destroy AO camera
+  │    ├─ position aoCamera, read worldToCameraMatrix (V) and projectionMatrix (P)
+  │    ├─ adjust P for D3D/Metal: Y-flip rows + Z-remap [-1,1]→[0,1] → _VP = P_adj * V
+  │    ├─ CommandBuffer.DrawMesh (all meshes) → depthCaptureRT via AODepthCapture shader
+  │    │    (outputs normalized depth [0,1]: 0=near, 1=far; handles UNITY_REVERSED_Z)
+  │    ├─ Graphics.Blit → aoRenderTexture via ComputeVertexAO shader
+  │    │    (cone filter + depth visibility test vs _ExplicitDepth + Welford running average)
+  │    └─ Graphics.CopyTexture(aoRenderTexture → aoRenderTextureForShader) for next iteration
+  ├─ ReadAOResult()                  — GPU readback: R channel → copy to RGBA → Texture2D (RGBAHalf)
+  ├─ BakeAO(aoTex)                   — per mesh:
+  │    ├─ set mesh.uv2  (UV2 pointing into aoTex)
+  │    ├─ set mesh.colors  (AO value in all channels — for custom shaders using COLOR semantic)
+  │    └─ create + apply RenderWithVertexAO material (_AOTex = aoTex, read via UV2)
+  └─ DisposeResources()              — release depthCaptureRT, destroy depthCaptureMat + aoCamera GO
 ```
 
 ## Known Constraints
 
-- `AOBehaviour.Awake()` uses reflection to retrieve `UniversalRendererData`. If URP is not assigned in Graphics Settings the component disables itself.
-- AO is computed once in `Start()` — no real-time updates.
+- AO is computed once in `Start()` — no real-time updates. Re-enter Play mode to recompute.
 - `GenerateSamplePositions()` always distributes viewpoints over the full sphere. The `spreadAngle` property controls the per-vertex normal cone filter inside the shader, not the viewpoint distribution range.
-- `BakeAO()` always writes to both UV2 texture and vertex colors simultaneously. Display uses `RenderWithVertexAO` (UV2 path). Vertex colors are available for custom shaders needing the AO value in the `COLOR` semantic.
-- The AO texture format is `RGBAHalf` with values in `[0, 1]`. The running average is computed in the shader; no CPU-side normalization is needed.
+- Depth capture uses `CommandBuffer.DrawMesh` + `Graphics.ExecuteCommandBuffer`, bypassing the URP pipeline entirely. `Camera.RenderWithShader` was deliberately avoided — it is not reliably supported in URP and may leave the render target untouched.
+- `aoCamera` is created with `enabled = false`. It exists only to provide `worldToCameraMatrix` and `projectionMatrix` for each viewpoint. It never renders through URP.
+- The `_VP` matrix passed to `ComputeVertexAO.shader` is `P_adjusted * V`, where `P_adjusted` remaps Unity's OpenGL-convention projection (z ∈ [-1,1]) to [0,1] on D3D/Metal via Y-flip + z*0.5+w*0.5. On non-D3D/Metal the shader does the remap in HLSL (`#if !defined(UNITY_REVERSED_Z)`).
+- `AODepthCapture.shader` outputs [0,1] (0=near, 1=far) on all platforms by checking `UNITY_REVERSED_Z`. This matches the convention of `d_vertex` in `ComputeVertexAO.shader`.
+- `BakeAO()` always writes to both UV2 and vertex colors simultaneously. The active display uses `RenderWithVertexAO` (UV2 path). Vertex colors are available for custom shaders using the `COLOR` semantic via the `_VERTEX_COLOR_AO` keyword.
+- The AO texture format is `RGBAHalf` with values in [0,1]. The running average is computed in the shader (Welford method); no CPU-side normalization is needed.
 - `BakeAO()` calls `mat.CopyPropertiesFromMaterial(renderer.sharedMaterial)` then immediately re-assigns `mat.shader = targetShader` because `CopyPropertiesFromMaterial` also copies the source material's shader.
-- `AORendererPass` uses the URP 14 `RTHandle` API. `FrameCleanup` has been replaced with `OnCameraCleanup`. Temporary RTs use `cmd.GetTemporaryRT`/`ReleaseTemporaryRT` (int-based, not deprecated). `cmd.Blit` (CommandBuffer) is used instead of `Blitter.BlitCameraTexture` because `ComputeVertexAO.shader` requires its own vertex shader to be called.
+- All three display/preview shaders include `#pragma multi_compile_instancing` and full URP stereo macros (`UNITY_VERTEX_INPUT_INSTANCE_ID`, `UNITY_VERTEX_OUTPUT_STEREO`, etc.) for XR / Single Pass Instanced VR support.
+- `AORendererFeature`, `AORendererPass`, and `AOSettings` still exist in `Runtime/` but are not referenced by `AOBehaviour`. They are retained for potential custom integration.
 - `UnityProject~/` is tracked by git. `Library/`, `Temp/`, and `Logs/` should be in `.gitignore`.

@@ -55,6 +55,7 @@ https://github.com/NegativeMind/viewpoint-vertex-ao.git#v1.0.0
 - A layer slot (8–31, or a layer named `"AOLayer"`) is reserved temporarily during computation and restored afterwards.
 - AO is not recalculated at runtime after `Start()`. Re-enter Play mode to recompute.
 - The `_VERTEX_COLOR_AO` shader keyword enables reading AO from vertex colors instead of UV2, for use with custom shaders that need AO in the `COLOR` semantic.
+- **VR / XR**: Single Pass Instanced stereo rendering is supported. All shaders include `#pragma multi_compile_instancing` and the required URP stereo macros. Depth capture bypasses the URP pipeline via `CommandBuffer.DrawMesh` to avoid XR interference with the internal depth texture.
 
 
 ## References
@@ -77,7 +78,7 @@ Ported to URP 14, refactored to use a running-average accumulation shader, and e
 
 ### URP Blit Renderer Feature
 
-`AORendererFeature` and `AORendererPass` are derived from **URP_BlitRenderFeature** by Cyanilux — MIT License:
+`AORendererFeature` and `AORendererPass` (present in `Runtime/` for custom integration) are derived from **URP_BlitRenderFeature** by Cyanilux — MIT License:
 https://github.com/Cyanilux/URP_BlitRenderFeature
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full license texts.
