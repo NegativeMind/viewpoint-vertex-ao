@@ -218,6 +218,7 @@ namespace NegativeMind.ViewpointVertexAO {
             aoCamera.stereoTargetEye = StereoTargetEyeMask.None; // prevent XR from overriding projection/depth in VR
 
             var camData = aoCamera.GetUniversalAdditionalCameraData ();
+            camData.allowXRRendering = false; // prevent URP/XR from applying stereo matrices during AO computation
             camData.renderShadows = false;
             camData.requiresColorOption = CameraOverrideOption.On;
             camData.requiresDepthOption = CameraOverrideOption.On;

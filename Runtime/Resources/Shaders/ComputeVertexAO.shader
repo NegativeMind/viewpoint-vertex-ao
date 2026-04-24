@@ -121,8 +121,14 @@ Shader "ViewpointAO/ComputeVertexAO"
                 float4 posInCamDepth = ComputeScreenPos(vertexPos);
                 posInCamDepth.xyz = posInCamDepth.xyz / posInCamDepth.w;
 
-                float z = depthFromDepthTexture(posInCamDepth).z;
-                float visible = abs(vertex.z - z) <= 0.01 ? 1.0 : 0.0;
+                // Compare view-space depth along camera forward to handle any camera orientation.
+                // World-Z comparison would fail when the camera looks along X or Y axes.
+                float3 surfaceWPos = depthFromDepthTexture(posInCamDepth.xy);
+                float3 camFwd = -float3(_InverseView._m02, _InverseView._m12, _InverseView._m22);
+                float depthVertex  = dot(vertex      - _CameraWorldPos, camFwd);
+                float depthSurface = dot(surfaceWPos - _CameraWorldPos, camFwd);
+                float threshold = (_ProjectionParams.z - _ProjectionParams.y) * 0.005;
+                float visible = abs(depthVertex - depthSurface) <= threshold ? 1.0 : 0.0;
 
                 // R = running average of visibility [0,1], G = in-cone sample count
                 float src_ao    = tex2D(_AOTex2, uv).r;

@@ -67,7 +67,3 @@ mono_crash.*
 # npm
 node_modules/
 
-# Meta files generated at the package root by the development Unity project.
-# Root-level .meta files are not part of the distributed package.
-# Meta files inside Runtime/ and Editor/ are committed for GUID stability.
-/*.meta
