@@ -215,6 +215,7 @@ namespace NegativeMind.ViewpointVertexAO {
             aoCamera.orthographicSize = radSurface * 1.1f;
             aoCamera.farClipPlane = radSurface * 2f;
             aoCamera.aspect = 1f;
+            aoCamera.stereoTargetEye = StereoTargetEyeMask.None; // prevent XR from overriding projection/depth in VR
 
             var camData = aoCamera.GetUniversalAdditionalCameraData ();
             camData.renderShadows = false;

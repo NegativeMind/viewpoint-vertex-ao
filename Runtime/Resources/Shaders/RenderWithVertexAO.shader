@@ -30,6 +30,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             #pragma shader_feature_local _VERTEX_COLOR_AO
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -55,6 +56,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 #if defined(_VERTEX_COLOR_AO)
                 float4 color      : COLOR;
                 #endif
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -65,11 +67,14 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float2 uv         : TEXCOORD2;
                 half   aoVal      : TEXCOORD3;
                 float  fogFactor  : TEXCOORD4;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings vert(Attributes v)
             {
                 Varyings o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 VertexPositionInputs posInputs  = GetVertexPositionInputs(v.positionOS.xyz);
                 VertexNormalInputs   normInputs = GetVertexNormalInputs(v.normalOS);
                 o.positionCS = posInputs.positionCS;
@@ -87,6 +92,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
 
             half4 frag(Varyings i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
 
                 InputData inputData = (InputData)0;
@@ -126,6 +132,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
             #pragma vertex   vert
             #pragma fragment frag
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -142,10 +149,24 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float  _Smoothness;
             CBUFFER_END
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
-
-            float4 vert(Attributes v) : SV_POSITION
+            struct Attributes
             {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
+
+            Varyings vert(Attributes v)
+            {
+                Varyings o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 pw = TransformObjectToWorld(v.positionOS.xyz);
                 float3 nw = TransformObjectToWorldNormal(v.normalOS);
                 #ifdef _CASTING_PUNCTUAL_LIGHT_SHADOW
@@ -156,9 +177,14 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float invNdotL = 1.0 - saturate(dot(lightDir, nw));
                 pw += lightDir * _ShadowBias.x;
                 pw += nw * (invNdotL * _ShadowBias.y);
-                return TransformWorldToHClip(pw);
+                o.positionCS = TransformWorldToHClip(pw);
+                return o;
             }
-            half4 frag() : SV_Target { return 0; }
+            half4 frag(Varyings i) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                return 0;
+            }
             ENDHLSL
         }
 
@@ -172,6 +198,7 @@ Shader "ViewpointAO/RenderWithVertexAO"
             HLSLPROGRAM
             #pragma vertex   vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
@@ -183,9 +210,31 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 float  _Smoothness;
             CBUFFER_END
 
-            struct Attributes { float4 positionOS : POSITION; };
-            float4 vert(Attributes v) : SV_POSITION { return TransformObjectToHClip(v.positionOS.xyz); }
-            half4  frag()             : SV_Target    { return 0; }
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
+
+            Varyings vert(Attributes v)
+            {
+                Varyings o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
+                return o;
+            }
+            half4 frag(Varyings i) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                return 0;
+            }
             ENDHLSL
         }
     }
