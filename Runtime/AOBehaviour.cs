@@ -176,7 +176,7 @@ namespace NegativeMind.ViewpointVertexAO {
             // Depth capture RT: 256×256 square for scene depth rendering.
             // RFloat gives full precision; depth format (24) enables correct fragment ordering.
             depthCaptureRT = new RenderTexture (256, 256, 24, RenderTextureFormat.RFloat) {
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Point,
                 anisoLevel = 0
             };
 

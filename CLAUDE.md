@@ -93,6 +93,8 @@ Start()
 - AO is computed once in `Start()` — no real-time updates. Re-enter Play mode to recompute.
 - `GenerateSamplePositions()` always distributes viewpoints over the full sphere. The `spreadAngle` property controls the per-vertex normal cone filter inside the shader, not the viewpoint distribution range.
 - Depth capture uses `CommandBuffer.DrawMesh` + `Graphics.ExecuteCommandBuffer`, bypassing the URP pipeline entirely. `Camera.RenderWithShader` was deliberately avoided — it is not reliably supported in URP and may leave the render target untouched.
+- `AODepthCapture.shader` uses `Cull Off` (not `Cull Back`). Sharp convex tips have face normals that are nearly perpendicular to the spike direction; with `Cull Back`, in-cone viewpoints at steep angles would back-cull the tip triangles, leaving `depthCaptureRT` as 1.0 (far) at the tip → false "occluded" result.
+- `depthCaptureRT` uses `FilterMode.Point`. Bilinear filtering would blend the tip pixel with surrounding empty pixels (depth=1.0), pulling `d_scene` away from the actual tip depth and causing the same false occlusion on sharp features.
 - `aoCamera` is created with `enabled = false`. It exists only to provide `worldToCameraMatrix` and `projectionMatrix` for each viewpoint. It never renders through URP.
 - The `_VP` matrix passed to `ComputeVertexAO.shader` is `P_adjusted * V`, where `P_adjusted` remaps Unity's OpenGL-convention projection (z ∈ [-1,1]) to [0,1] on D3D/Metal via Y-flip + z*0.5+w*0.5. On non-D3D/Metal the shader does the remap in HLSL (`#if !defined(UNITY_REVERSED_Z)`).
 - `AODepthCapture.shader` outputs [0,1] (0=near, 1=far) on all platforms by checking `UNITY_REVERSED_Z`. This matches the convention of `d_vertex` in `ComputeVertexAO.shader`.

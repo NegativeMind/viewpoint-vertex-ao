@@ -4,7 +4,7 @@ Shader "Hidden/ViewpointAO/AODepthCapture"
     {
         Tags { "RenderType" = "Opaque" }
         ZWrite On
-        Cull Back
+        Cull Off
 
         Pass
         {
