@@ -76,11 +76,6 @@ https://github.com/nezix/Unity-GeoAO
 
 Ported to URP 14, refactored to use a running-average accumulation shader, and extended with per-vertex normal cone filtering.
 
-### URP Blit Renderer Feature
-
-`AORendererFeature` and `AORendererPass` (present in `Runtime/` for custom integration) are derived from **URP_BlitRenderFeature** by Cyanilux — MIT License:
-https://github.com/Cyanilux/URP_BlitRenderFeature
-
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full license texts.
 
 ## Algorithm

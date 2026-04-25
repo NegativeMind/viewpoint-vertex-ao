@@ -41,9 +41,6 @@ viewpoint-based-AO/          ← repo root = package root
 |---|---|
 | `AOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
 | `SamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
-| `AORendererFeature` | URP Renderer Feature (not used by `AOBehaviour` — retained for potential custom integration). |
-| `AORendererPass` | ScriptableRenderPass implementation (not used by `AOBehaviour`). |
-| `AOSettings` | Settings data for `AORendererFeature` (not used by `AOBehaviour`). |
 
 ## Shaders
 
@@ -103,5 +100,4 @@ Start()
 - The AO texture format is `RGBAHalf` with values in [0,1]. The running average is computed in the shader (Welford method); no CPU-side normalization is needed.
 - `BakeAO()` calls `mat.CopyPropertiesFromMaterial(renderer.sharedMaterial)` then immediately re-assigns `mat.shader = targetShader` because `CopyPropertiesFromMaterial` also copies the source material's shader.
 - All three display/preview shaders include `#pragma multi_compile_instancing` and full URP stereo macros (`UNITY_VERTEX_INPUT_INSTANCE_ID`, `UNITY_VERTEX_OUTPUT_STEREO`, etc.) for XR / Single Pass Instanced VR support.
-- `AORendererFeature`, `AORendererPass`, and `AOSettings` still exist in `Runtime/` but are not referenced by `AOBehaviour`. They are retained for potential custom integration.
 - `UnityProject~/` is tracked by git. `Library/`, `Temp/`, and `Logs/` should be in `.gitignore`.
