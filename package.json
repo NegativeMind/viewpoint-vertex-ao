@@ -2,7 +2,7 @@
     "name": "com.negativemind.viewpoint-vertex-ao",
     "version": "1.0.0",
     "displayName": "Viewpoint Vertex AO",
-    "description": "Viewpoint-Based Ambient Occlusion package for Unity URP.",
+    "description": "Viewpoint-Based Per-Vertex Ambient Occlusion package for Unity URP.",
     "unity": "2022.3",
     "unityRelease": "0f1",
     "keywords": [
