@@ -39,7 +39,8 @@ https://github.com/NegativeMind/viewpoint-vertex-ao.git#v1.0.0
    | Property | Description |
    |---|---|
    | `Spread Angle` | Cone half-angle around each vertex normal. `1.0` = full hemisphere, `0.0` = equatorial ring. Controls how much of the sphere contributes to each vertex's AO. |
-   | `Sampling Level` | Number of viewpoints. Higher = better quality, longer bake time. |
+   | `Sampling Level` | Number of viewpoints. Higher = smoother AO, longer bake time. |
+   | `Capture Resolution` | Resolution of the per-viewpoint depth capture texture (256–2048). Higher = finer geometry detail resolved, more GPU memory. Default is `High` (1024). |
    | `AO Scale` | Blend factor between no-occlusion (`0`) and full occlusion (`1`). |
    | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values, and draws the viewpoint positions as gizmos in the Scene view. |
 

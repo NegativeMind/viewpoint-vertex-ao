@@ -12,6 +12,7 @@ namespace NegativeMind.ViewpointVertexAO {
 
         [Range (0.0f, 1.0f)] public float spreadAngle = 0.8f;
         public SamplingLevel samplingLevel = SamplingLevel.High;
+        public CaptureResolution captureResolution = CaptureResolution.High;
         [Range (0.0f, 1.0f)] public float aoScale = 1f;
         public bool showDebug = false;
 
@@ -173,9 +174,11 @@ namespace NegativeMind.ViewpointVertexAO {
 
             int height = Mathf.CeilToInt (allVertexCount / (float) vertByRow);
 
-            // Depth capture RT: 256×256 square for scene depth rendering.
-            // RFloat gives full precision; depth format (24) enables correct fragment ordering.
-            depthCaptureRT = new RenderTexture (256, 256, 24, RenderTextureFormat.RFloat) {
+            // Depth capture RT: square render texture for per-viewpoint scene depth.
+            // RFloat gives full precision; depth 24 enables correct fragment ordering.
+            // Higher captureResolution resolves finer geometry details at the cost of GPU memory.
+            int capSize = (int) captureResolution;
+            depthCaptureRT = new RenderTexture (capSize, capSize, 24, RenderTextureFormat.RFloat) {
                 filterMode = FilterMode.Point,
                 anisoLevel = 0
             };

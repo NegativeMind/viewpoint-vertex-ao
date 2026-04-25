@@ -41,6 +41,7 @@ viewpoint-based-AO/          ← repo root = package root
 |---|---|
 | `AOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
 | `SamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
+| `CaptureResolution` | Enum defining the depth capture texture resolution per viewpoint (256–2048). |
 
 ## Shaders
 
