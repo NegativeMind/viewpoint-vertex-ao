@@ -23,12 +23,6 @@ A Unity URP package that computes per-vertex Ambient Occlusion by rendering the 
 https://github.com/NegativeMind/viewpoint-vertex-ao.git
 ```
 
-To install a specific version, append the tag:
-
-```
-https://github.com/NegativeMind/viewpoint-vertex-ao.git#v1.0.0
-```
-
 
 ## Usage
 
