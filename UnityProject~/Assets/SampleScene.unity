@@ -348,6 +348,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spreadAngle: 0.8
   samplingLevel: 144
+  captureResolution: 1024
   aoScale: 1
   showDebug: 0
 --- !u!1 &1134516563
@@ -847,6 +848,6 @@ SceneRoots:
   m_Roots:
   - {fileID: 1134516566}
   - {fileID: 1631782468}
-  - {fileID: 159541353}
   - {fileID: 1187872909}
   - {fileID: 1529204806}
+  - {fileID: 159541353}
