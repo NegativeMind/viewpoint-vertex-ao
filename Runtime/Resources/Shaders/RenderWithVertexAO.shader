@@ -27,7 +27,15 @@ Shader "ViewpointAO/RenderWithVertexAO"
             #pragma fragment frag
 
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
+            #pragma multi_compile _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fog
             #pragma shader_feature_local _VERTEX_COLOR_AO
             #pragma multi_compile_instancing
@@ -49,24 +57,30 @@ Shader "ViewpointAO/RenderWithVertexAO"
 
             struct Attributes
             {
-                float4 positionOS : POSITION;
-                float3 normalOS   : NORMAL;
-                float2 uv         : TEXCOORD0;
-                float2 uv2        : TEXCOORD1;
+                float4 positionOS        : POSITION;
+                float3 normalOS          : NORMAL;
+                float2 uv                : TEXCOORD0;
+                float2 uv2               : TEXCOORD1; // AO UV; doubles as lightmap UV when LIGHTMAP_ON
                 #if defined(_VERTEX_COLOR_AO)
-                float4 color      : COLOR;
+                float4 color             : COLOR;
                 #endif
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
-                float4 positionCS : SV_POSITION;
-                float3 positionWS : TEXCOORD0;
-                float3 normalWS   : TEXCOORD1;
-                float2 uv         : TEXCOORD2;
-                half   aoVal      : TEXCOORD3;
-                float  fogFactor  : TEXCOORD4;
+                float4 positionCS        : SV_POSITION;
+                float3 positionWS        : TEXCOORD0;
+                float3 normalWS          : TEXCOORD1;
+                float2 uv                : TEXCOORD2;
+                half   aoVal             : TEXCOORD3;
+                float  fogFactor         : TEXCOORD4;
+                half3  vertexLighting    : TEXCOORD5;
+                #if defined(LIGHTMAP_ON)
+                float2 staticLightmapUV  : TEXCOORD6;
+                #else
+                half3  vertexSH          : TEXCOORD6;
+                #endif
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -82,11 +96,21 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 o.normalWS   = normInputs.normalWS;
                 o.uv         = TRANSFORM_TEX(v.uv, _BaseMap);
                 #if defined(_VERTEX_COLOR_AO)
-                o.aoVal      = v.color.r; // [0,1] from vertex color R channel
+                o.aoVal      = v.color.r;
                 #else
-                o.aoVal      = SAMPLE_TEXTURE2D_LOD(_AOTex, sampler_AOTex, v.uv2, 0).r; // [0,1]
+                o.aoVal      = SAMPLE_TEXTURE2D_LOD(_AOTex, sampler_AOTex, v.uv2, 0).r;
                 #endif
                 o.fogFactor  = ComputeFogFactor(posInputs.positionCS.z);
+                #if defined(_ADDITIONAL_LIGHTS_VERTEX)
+                o.vertexLighting = VertexLighting(posInputs.positionWS, normInputs.normalWS);
+                #else
+                o.vertexLighting = half3(0, 0, 0);
+                #endif
+                #if defined(LIGHTMAP_ON)
+                OUTPUT_LIGHTMAP_UV(v.uv2, unity_LightmapST, o.staticLightmapUV);
+                #else
+                OUTPUT_SH(normInputs.normalWS, o.vertexSH);
+                #endif
                 return o;
             }
 
@@ -101,9 +125,19 @@ Shader "ViewpointAO/RenderWithVertexAO"
                 inputData.viewDirectionWS         = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 inputData.shadowCoord             = TransformWorldToShadowCoord(i.positionWS);
                 inputData.fogCoord                = i.fogFactor;
-                inputData.bakedGI                 = SampleSH(inputData.normalWS);
+                inputData.vertexLighting          = i.vertexLighting;
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(i.positionCS);
-                inputData.shadowMask              = unity_ProbesOcclusion;
+                #if defined(LIGHTMAP_ON)
+                inputData.bakedGI    = SampleLightmap(i.staticLightmapUV, inputData.normalWS);
+                #if defined(SHADOWS_SHADOWMASK)
+                inputData.shadowMask = SAMPLE_SHADOWMASK(i.staticLightmapUV);
+                #else
+                inputData.shadowMask = half4(1, 1, 1, 1);
+                #endif
+                #else
+                inputData.bakedGI    = SampleSHPixel(i.vertexSH, inputData.normalWS);
+                inputData.shadowMask = unity_ProbesOcclusion;
+                #endif
 
                 SurfaceData surfaceData = (SurfaceData)0;
                 surfaceData.albedo      = baseColor.rgb;
