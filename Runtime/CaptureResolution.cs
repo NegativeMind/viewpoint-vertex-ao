@@ -5,9 +5,10 @@ namespace NegativeMind.ViewpointVertexAO {
     /// The texture is square; memory cost scales as resolution².
     /// </summary>
     public enum CaptureResolution {
-        Low    = 256,   // ~0.26 MB  — fast, coarse detail
-        Medium = 512,   // ~1.05 MB  — balanced
-        High   = 1024,  // ~4.19 MB  — fine detail, recommended for complex meshes
-        Ultra  = 2048,  // ~16.8 MB  — maximum quality
+        Low = 256, // ~0.26 MB  — fast, coarse detail
+        Medium = 512, // ~1.05 MB  — balanced
+        High = 1024, // ~4.19 MB  — fine detail, recommended for complex meshes
+        VeryHigh = 2048, // ~16.8 MB  — very fine detail
+        TooMuch = 4096, // ~67.1 MB  — maximum quality
     }
 }
