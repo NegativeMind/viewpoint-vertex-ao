@@ -41,7 +41,7 @@ viewpoint-based-AO/          ← repo root = package root
 |---|---|
 | `AOBehaviour` | MonoBehaviour entry point. Attach to a GameObject to compute and apply AO. |
 | `SamplingLevel` | Enum defining sampling quality levels (number of viewpoints). |
-| `CaptureResolution` | Enum defining the depth capture texture resolution per viewpoint (256–2048). |
+| `CaptureResolution` | Enum defining the depth capture texture resolution per viewpoint (256–4096). |
 
 ## Shaders
 
@@ -56,17 +56,18 @@ viewpoint-based-AO/          ← repo root = package root
 
 ```
 Awake()
-  ├─ Reserve a free layer slot (8–31, or named "AOLayer") — stored but unused in practice
   ├─ Create ambientOcclusionMat  (ComputeVertexAO shader)
+  ├─ Find AODepthCapture shader; disable component if not found
   └─ Create depthCaptureMat      (AODepthCapture shader)
 
 Start()
-  ├─ InitializeObjectAndGetBounds()  — collect MeshFilters, compute bounds,
+  ├─ InitializeObjectAndGetBounds()  — collect MeshFilters (with MeshRenderer), compute bounds,
+  │                                    validate: mesh exists, exactly 1 material, no lightmap (UV2 conflict)
   │                                    save + override shadowCastingMode → TwoSided
   ├─ GenerateSamplePositions()       — distribute viewpoints on a Fibonacci sphere
   │                                    (spreadAngle cone filter is applied per-vertex in the shader)
   ├─ CreateAoCamera()                — create disabled camera (used only for transform + matrices)
-  │                                    allocate: depthCaptureRT (256×256 RFloat, depth=24),
+  │                                    allocate: depthCaptureRT (captureResolution² RFloat, depth=24),
   │                                              aoRenderTexture / aoRenderTextureForShader (ARGBHalf),
   │                                              vertexPositionsTexture / vertexNormalsTexture (RGBAFloat)
   ├─ VertexDataToTexture()           — pack vertex world positions and world normals into Texture2Ds
@@ -78,12 +79,24 @@ Start()
   │    ├─ Graphics.Blit → aoRenderTexture via ComputeVertexAO shader
   │    │    (cone filter + depth visibility test vs _ExplicitDepth + Welford running average)
   │    └─ Graphics.CopyTexture(aoRenderTexture → aoRenderTextureForShader) for next iteration
+  │    after loop: restore original shadowCastingMode on all renderers
   ├─ ReadAOResult()                  — GPU readback: R channel → copy to RGBA → Texture2D (RGBAHalf)
   ├─ BakeAO(aoTex)                   — per mesh:
   │    ├─ set mesh.uv2  (UV2 pointing into aoTex)
   │    ├─ set mesh.colors  (AO value in all channels — for custom shaders using COLOR semantic)
-  │    └─ create + apply RenderWithVertexAO material (_AOTex = aoTex, read via UV2)
-  └─ DisposeResources()              — release depthCaptureRT, destroy depthCaptureMat + aoCamera GO
+  │    └─ create + apply RenderWithVertexAO (or PreviewVertexAO if showDebug) material
+  ├─ DisposeResources()              — release depthCaptureRT, destroy depthCaptureMat + aoCamera GO
+  └─ Log total compute time
+
+Update()
+  └─ Set _AOScale on all aoMaterials[] each frame (enables runtime intensity tuning)
+
+OnDrawGizmos()  [Editor only, when showDebug == true]
+  ├─ Draw red spheres at each viewpoint position
+  └─ Draw red lines from bounds center to each viewpoint
+
+OnDestroy()
+  └─ DisposeResources() fallback (in case baking was interrupted)
 ```
 
 ## Known Constraints
