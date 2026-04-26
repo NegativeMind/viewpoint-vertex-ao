@@ -67,6 +67,11 @@ https://www.researchgate.net/publication/5501367_Viewpoint-Based_Ambient_Occlusi
 
 The technique samples the hemisphere above each vertex's surface normal by rendering the scene from N viewpoints distributed on a sphere. Each viewpoint votes on whether a vertex is visible, and the mean visibility is taken as the AO value.
 
+### WebGL Implementation
+
+**geo-ambient-occlusion** by wwwtyro — a WebGL implementation of the viewpoint-based AO technique, referenced by Unity-GeoAO below:
+https://github.com/wwwtyro/geo-ambient-occlusion
+
 ### Original Unity Implementation
 
 This package is based on **Unity-GeoAO** by Xavier Martinez (nezix) — MIT License:
