@@ -9,7 +9,7 @@
 
 A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is computed once at runtime on initialization and baked into the material — there is no per-frame overhead after that. The result matches the visual appearance of URP/Lit with an Occlusion Map. Because AO is stored in auto-generated UV2 coordinates and vertex colors, the mesh does not need pre-existing UV unwrapping.
 
-Because AO is baked in world space rather than computed per-frame in screen space, both eyes in a stereo VR headset read identical occlusion values — unlike Screen Space Ambient Occlusion, which evaluates the scene independently from each eye's viewpoint and can produce subtly different results per eye, causing visual inconsistency in VR.
+Because AO is baked in world space rather than computed per-frame in screen space, both eyes in a stereo VR headset read identical occlusion values — unlike Screen Space Ambient Occlusion (SSAO), which evaluates the scene independently from each eye's viewpoint and can produce subtly different results per eye, causing visual inconsistency in VR.
 
 ## Requirements
 
