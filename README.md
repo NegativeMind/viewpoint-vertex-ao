@@ -1,6 +1,9 @@
 # Viewpoint-Based Per-Vertex Ambient Occlusion for Unity URP
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Unity](https://img.shields.io/badge/Unity-2022.3%2B-black?logo=unity&logoColor=white)](https://unity.com/)
+[![URP](https://img.shields.io/badge/URP-12.1.0%2B-blue?logo=unity&logoColor=white)](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest)
+[![XR](https://img.shields.io/badge/XR-Single%20Pass%20Instanced-blueviolet)](https://docs.unity3d.com/Manual/SinglePassInstancing.html)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 
 ![PBR with AO](Documentation~/pbr_with_ao.png)
 
