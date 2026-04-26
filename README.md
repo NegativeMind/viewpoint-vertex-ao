@@ -9,6 +9,8 @@
 
 A Unity URP package that computes per-vertex Ambient Occlusion by rendering the mesh from multiple viewpoints and accumulating depth-based visibility. AO is computed once at runtime on initialization and baked into the material — there is no per-frame overhead after that. The result matches the visual appearance of URP/Lit with an Occlusion Map. Because AO is stored in auto-generated UV2 coordinates and vertex colors, the mesh does not need pre-existing UV unwrapping.
 
+Because AO is baked in world space rather than computed per-frame in screen space, both eyes in a stereo VR headset read identical occlusion values — unlike Screen Space Ambient Occlusion, which evaluates the scene independently from each eye's viewpoint and can produce subtly different results per eye, causing visual inconsistency in VR.
+
 ## Requirements
 
 - Unity 2022.3.0f1 or later
@@ -69,12 +71,12 @@ The technique samples the hemisphere above each vertex's surface normal by rende
 
 ### WebGL Implementation
 
-**geo-ambient-occlusion** by wwwtyro — a WebGL implementation of the viewpoint-based AO technique, referenced by Unity-GeoAO below:
+**geo-ambient-occlusion** by wwwtyro — a WebGL implementation of the viewpoint-based AO technique:
 https://github.com/wwwtyro/geo-ambient-occlusion
 
 ### Original Unity Implementation
 
-This package is based on **Unity-GeoAO** by Xavier Martinez (nezix) — MIT License:
+This package is based on **Unity-GeoAO** by Xavier Martinez (nezix), which references geo-ambient-occlusion above — MIT License:
 https://github.com/nezix/Unity-GeoAO
 
 Adapted for URP, refactored to use a running-average accumulation shader, and extended with per-vertex normal cone filtering.
