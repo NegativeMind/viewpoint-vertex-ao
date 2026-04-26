@@ -6,7 +6,6 @@ using UnityEngine.Rendering.Universal;
 namespace NegativeMind.ViewpointVertexAO {
     /// <summary>
     /// MonoBehaviour entry point for Viewpoint-Based AO. Attach to a GameObject to compute and apply AO.
-    /// Automatically detects URP RendererData, adds the RendererFeature, and reserves a layer.
     /// </summary>
     public class AOBehaviour : MonoBehaviour {
 
@@ -17,7 +16,6 @@ namespace NegativeMind.ViewpointVertexAO {
         public bool showDebug = false;
 
         MeshFilter[] meshFilters;
-        int[] savedLayer;
         ShadowCastingMode[] savedShadowMode;
         Vector3[] rayDirection;
         Bounds allBounds;
@@ -35,8 +33,6 @@ namespace NegativeMind.ViewpointVertexAO {
 
         Camera aoCamera;
         GameObject aoCameraGO;
-        int aoLayerIndex = -1;
-
         RenderTexture depthCaptureRT;
         Material depthCaptureMat;
 
@@ -46,18 +42,11 @@ namespace NegativeMind.ViewpointVertexAO {
         const string previewShaderName = "ViewpointAO/PreviewVertexAO";
 
         void Awake () {
-            aoLayerIndex = FindAvailableLayer ();
-            if (aoLayerIndex < 0) {
-                Debug.LogError ("[ViewpointAO] AO 計算用の空きレイヤーがありません (Layer 8-31 がすべて使用中)。");
-                enabled = false;
-                return;
-            }
-
             ambientOcclusionMat = new Material (Shader.Find (computeShaderName));
 
             var depthCaptureShader = Shader.Find ("Hidden/ViewpointAO/AODepthCapture");
             if (depthCaptureShader == null) {
-                Debug.LogError ("[ViewpointAO] AODepthCapture シェーダーが見つかりません。");
+                Debug.LogError ("[ViewpointAO] AODepthCapture shader was not found.");
                 enabled = false;
                 return;
             }
@@ -67,7 +56,12 @@ namespace NegativeMind.ViewpointVertexAO {
         void Start () {
             float t0 = Time.realtimeSinceStartup;
 
-            InitializeObjectAndGetBounds ();
+            if (!InitializeObjectAndGetBounds ()) {
+                DisposeResources ();
+                enabled = false;
+                return;
+            }
+
             GenerateSamplePositions ();
             CreateAoCamera ();
             VertexDataToTexture ();
@@ -80,50 +74,60 @@ namespace NegativeMind.ViewpointVertexAO {
         }
 
         // ---------------------------------------------------------------------------------
-        // Setup
-        // ---------------------------------------------------------------------------------
-
-        // Use the "AOLayer" layer if it exists in the project; otherwise find a free slot (8–31)
-        static int FindAvailableLayer () {
-            int named = LayerMask.NameToLayer ("AOLayer");
-            if (named >= 0) return named;
-
-            for (int i = 8; i < 32; i++) {
-                if (string.IsNullOrEmpty (LayerMask.LayerToName (i))) return i;
-            }
-            return -1;
-        }
-
-        // ---------------------------------------------------------------------------------
         // AO Computation
         // ---------------------------------------------------------------------------------
 
-        void InitializeObjectAndGetBounds () {
+        bool InitializeObjectAndGetBounds () {
             // Collect all MeshFilters under the attached GameObject
             meshFilters = GetComponentsInChildren<MeshFilter> ()
                 .Where (mf => mf.GetComponent<MeshRenderer> () != null)
                 .ToArray ();
 
             if (meshFilters.Length == 0) {
-                Debug.LogWarning ("[ViewpointAO] MeshFilter が見つかりません: " + gameObject.name);
-                return;
+                Debug.LogWarning ("[ViewpointAO] No MeshFilter with a MeshRenderer was found under: " + gameObject.name);
+                return false;
             }
 
-            savedLayer = new int[meshFilters.Length];
+            foreach (var meshFilter in meshFilters) {
+                var renderer = meshFilter.GetComponent<MeshRenderer> ();
+
+                if (meshFilter.sharedMesh == null) {
+                    Debug.LogError ("[ViewpointAO] A MeshFilter is missing its mesh: " + meshFilter.name);
+                    return false;
+                }
+
+                if (renderer.sharedMaterials.Length != 1) {
+                    Debug.LogError ("[ViewpointAO] Only renderers with exactly one material are supported: " + meshFilter.name);
+                    return false;
+                }
+
+                if (renderer.sharedMaterial == null) {
+                    Debug.LogError ("[ViewpointAO] A renderer is missing its material: " + meshFilter.name);
+                    return false;
+                }
+
+                if (renderer.lightmapIndex >= 0) {
+                    Debug.LogError ("[ViewpointAO] Lightmapped renderers are not supported because AO baking overwrites UV2: " + meshFilter.name);
+                    return false;
+                }
+            }
+
             savedShadowMode = new ShadowCastingMode[meshFilters.Length];
 
-            for (int i = 0; i < meshFilters.Length; i++) {
-                var mr = meshFilters[i].GetComponent<MeshRenderer> ();
+            int shadowModeIndex = 0;
+            foreach (var meshFilter in meshFilters) {
+                var mr = meshFilter.GetComponent<MeshRenderer> ();
 
-                if (i == 0) allBounds = mr.bounds;
+                if (shadowModeIndex == 0) allBounds = mr.bounds;
                 else allBounds.Encapsulate (mr.bounds);
 
-                savedLayer[i] = meshFilters[i].gameObject.layer;
-                savedShadowMode[i] = mr.shadowCastingMode;
+                savedShadowMode[shadowModeIndex] = mr.shadowCastingMode;
                 mr.shadowCastingMode = ShadowCastingMode.TwoSided;
+                shadowModeIndex++;
             }
 
             allVertexCount = meshFilters.Sum (mf => mf.sharedMesh.vertexCount);
+            return true;
         }
 
         void GenerateSamplePositions () {
@@ -155,7 +159,7 @@ namespace NegativeMind.ViewpointVertexAO {
 
             aoCamera.enabled = false;
             aoCamera.orthographic = true;
-            aoCamera.cullingMask = 1 << aoLayerIndex;
+            aoCamera.cullingMask = 0;
             aoCamera.clearFlags = CameraClearFlags.Depth;
             aoCamera.nearClipPlane = 0.0001f;
             aoCamera.backgroundColor = Color.white;
@@ -273,9 +277,10 @@ namespace NegativeMind.ViewpointVertexAO {
                 Graphics.CopyTexture (aoRenderTexture, aoRenderTextureForShader);
             }
 
-            for (int i = 0; i < meshFilters.Length; i++) {
-                meshFilters[i].gameObject.layer = savedLayer[i];
-                meshFilters[i].GetComponent<MeshRenderer> ().shadowCastingMode = savedShadowMode[i];
+            int shadowModeIndex = 0;
+            foreach (var meshFilter in meshFilters) {
+                meshFilter.GetComponent<MeshRenderer> ().shadowCastingMode = savedShadowMode[shadowModeIndex];
+                shadowModeIndex++;
             }
         }
 
@@ -312,8 +317,9 @@ namespace NegativeMind.ViewpointVertexAO {
 
             aoMaterials = new Material[meshFilters.Length];
 
-            for (int i = 0; i < meshFilters.Length; i++) {
-                var mesh = meshFilters[i].mesh;
+            int materialIndex = 0;
+            foreach (var meshFilter in meshFilters) {
+                var mesh = meshFilter.mesh;
                 int vertCount = mesh.vertexCount;
                 var uv2 = new Vector2[vertCount];
                 var colors = new Color[vertCount];
@@ -329,7 +335,7 @@ namespace NegativeMind.ViewpointVertexAO {
                 mesh.uv2 = uv2;
                 mesh.colors = colors;
 
-                var renderer = meshFilters[i].GetComponent<Renderer> ();
+                var renderer = meshFilter.GetComponent<Renderer> ();
                 var targetShader = Shader.Find (showDebug ? previewShaderName : renderShaderName);
                 var mat = new Material (targetShader);
                 if (!showDebug && renderer.sharedMaterial != null) {
@@ -339,14 +345,16 @@ namespace NegativeMind.ViewpointVertexAO {
                 mat.SetFloat ("_AOScale", aoScale);
                 mat.SetTexture ("_AOTex", aoTex);
                 renderer.material = mat;
-                aoMaterials[i] = mat;
+                aoMaterials[materialIndex] = mat;
+                materialIndex++;
             }
         }
 
         void Update () {
             if (aoMaterials == null) return;
-            foreach (var mat in aoMaterials)
+            foreach (var mat in aoMaterials){
                 mat.SetFloat ("_AOScale", aoScale);
+            }
         }
 
         void DisposeResources () {

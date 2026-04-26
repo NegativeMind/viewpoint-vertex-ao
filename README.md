@@ -8,8 +8,8 @@ A Unity URP package that computes per-vertex Ambient Occlusion by rendering the 
 
 ## Requirements
 
-- Unity 2022.3 or later
-- Universal Render Pipeline (URP) 14.x
+- Unity 2022.3.0f1 or later
+- Universal Render Pipeline (URP) 12.1.0
 
 ## Installation
 
@@ -34,7 +34,7 @@ https://github.com/NegativeMind/viewpoint-vertex-ao.git
    |---|---|
    | `Spread Angle` | Cone half-angle around each vertex normal. `1.0` = full hemisphere, `0.0` = equatorial ring. Controls how much of the sphere contributes to each vertex's AO. |
    | `Sampling Level` | Number of viewpoints. Higher = smoother AO, longer bake time. |
-   | `Capture Resolution` | Resolution of the per-viewpoint depth capture texture (256–2048). Higher = finer geometry detail resolved, more GPU memory. Default is `High` (1024). |
+   | `Capture Resolution` | Resolution of the per-viewpoint depth capture texture (256–4096). Higher = finer geometry detail resolved, more GPU memory. Default is `High` (1024). |
    | `AO Scale` | Blend factor between no-occlusion (`0`) and full occlusion (`1`). |
    | `Show Debug` | Replaces the material with a grayscale preview of the raw AO values, and draws the viewpoint positions as gizmos in the Scene view. |
 
@@ -47,7 +47,7 @@ https://github.com/NegativeMind/viewpoint-vertex-ao.git
 ### Notes
 
 - The mesh's material is replaced at runtime. The original material's properties (base texture, color, metallic, smoothness) are copied to the new material via `CopyPropertiesFromMaterial`.
-- A layer slot (8–31, or a layer named `"AOLayer"`) is reserved temporarily during computation and restored afterwards.
+- AO computation renders meshes explicitly with `CommandBuffer.DrawMesh`, so no dedicated layer setup is required.
 - AO is not recalculated at runtime after `Start()`. Re-enter Play mode to recompute.
 - The `_VERTEX_COLOR_AO` shader keyword enables reading AO from vertex colors instead of UV2, for use with custom shaders that need AO in the `COLOR` semantic.
 - **VR / XR**: Single Pass Instanced stereo rendering is supported. All shaders include `#pragma multi_compile_instancing` and the required URP stereo macros. Depth capture bypasses the URP pipeline via `CommandBuffer.DrawMesh` to avoid XR interference with the internal depth texture.
@@ -69,7 +69,7 @@ The technique samples the hemisphere above each vertex's surface normal by rende
 This package is based on **Unity-GeoAO** by Xavier Martinez (nezix) — MIT License:
 https://github.com/nezix/Unity-GeoAO
 
-Ported to URP 14, refactored to use a running-average accumulation shader, and extended with per-vertex normal cone filtering.
+Adapted for URP, refactored to use a running-average accumulation shader, and extended with per-vertex normal cone filtering.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full license texts.
 
